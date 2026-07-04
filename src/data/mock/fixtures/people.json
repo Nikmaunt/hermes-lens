@@ -1,0 +1,82 @@
+{
+  "people": [
+    {
+      "id": "person-rosa",
+      "name": "Rosa Ortega",
+      "relation": "Spanish tutor",
+      "context": "Weekly lessons on Thursdays 18:00, online. Prepares me for the B1 exam. Prefers rescheduling at least a day ahead.",
+      "preferredLanguage": "Spanish",
+      "agreements": [
+        { "id": "agr-rosa-1", "text": "I send homework by Wednesday evening", "madeOn": "@d-40", "status": "open" },
+        { "id": "agr-rosa-2", "text": "She shares mock exam #3 materials", "madeOn": "@d-7", "status": "done" }
+      ],
+      "lastInteraction": {
+        "at": "@t-1@18:55",
+        "channel": "telegram",
+        "summary": "Asked if Thursday's lesson can move to Friday — I haven't replied yet."
+      }
+    },
+    {
+      "id": "person-clara",
+      "name": "Clara",
+      "relation": "sister",
+      "context": "Lives three time zones away. We call on Sunday evenings. Planning to visit in early autumn.",
+      "preferredLanguage": "English",
+      "agreements": [
+        { "id": "agr-clara-1", "text": "I send apartment photos for her moodboard", "madeOn": "@d-3", "status": "open" },
+        { "id": "agr-clara-2", "text": "She books nothing until I confirm my vacation days", "madeOn": "@d-14", "status": "open" }
+      ],
+      "lastInteraction": {
+        "at": "@t-3@20:12",
+        "channel": "call",
+        "summary": "Sunday call: her kitchen renovation, my novel progress, autumn visit dates."
+      }
+    },
+    {
+      "id": "person-hale",
+      "name": "Mr. Hale",
+      "relation": "landlord",
+      "context": "Owns the apartment. Formal but fair. Contact only via SMS or calls, no messengers. Slow to answer written requests.",
+      "preferredLanguage": "English",
+      "agreements": [
+        { "id": "agr-hale-1", "text": "He sends written approval for kitchen renovation", "madeOn": "@d-18", "status": "open" },
+        { "id": "agr-hale-2", "text": "Rent unchanged until lease renewal", "madeOn": "@d-95", "status": "done" }
+      ],
+      "lastInteraction": {
+        "at": "@t-8@11:02",
+        "channel": "sms",
+        "summary": "Said he will 'look into' the renovation approval. No update since."
+      }
+    },
+    {
+      "id": "person-theo",
+      "name": "Theo",
+      "relation": "old friend",
+      "context": "University friend, lives nearby. Chess on Wednesdays at the club, occasional sauna weekends. Knows everyone in the local climbing circle.",
+      "preferredLanguage": "English",
+      "agreements": [
+        { "id": "agr-theo-1", "text": "I bring the board he lent me back", "madeOn": "@d-10", "status": "open" }
+      ],
+      "lastInteraction": {
+        "at": "@t-2@21:30",
+        "channel": "in person",
+        "summary": "Chess night — lost both games. He suggested entering the club's autumn tournament together."
+      }
+    },
+    {
+      "id": "person-okafor",
+      "name": "Dr. Okafor",
+      "relation": "dentist",
+      "context": "Clinic on the north side, 3 Cedar Avenue. Books out 2–3 weeks ahead. Cleaning twice a year.",
+      "preferredLanguage": "English",
+      "agreements": [
+        { "id": "agr-okafor-1", "text": "I confirm next week's slot by phone", "madeOn": "@d-4", "status": "open" }
+      ],
+      "lastInteraction": {
+        "at": "@t-4@09:15",
+        "channel": "phone",
+        "summary": "Receptionist offered a cleaning slot next week, needs confirmation."
+      }
+    }
+  ]
+}

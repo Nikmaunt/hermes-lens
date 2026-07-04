@@ -1,0 +1,60 @@
+{
+  "items": [
+    {
+      "id": "in-1",
+      "text": "Idea for the novel: the station AI hides log entries out of embarrassment, not malice",
+      "capturedAt": "@t-4@23:41",
+      "source": "capture",
+      "tags": ["novel", "idea"]
+    },
+    {
+      "id": "in-2",
+      "text": "Theo recommended 'Español Despacio' podcast, episodes 40+ are B1 level",
+      "capturedAt": "@t-3@21:12",
+      "source": "telegram",
+      "tags": ["spanish"]
+    },
+    {
+      "id": "in-3",
+      "text": "Check if the insurance renewal covers the new laptop or needs a rider",
+      "capturedAt": "@t-3@09:05",
+      "source": "capture",
+      "tags": ["money", "documents"]
+    },
+    {
+      "id": "in-4",
+      "text": "Recipe worth keeping: white bean stew with smoked paprika from Tuesday",
+      "capturedAt": "@t-2@19:48",
+      "source": "capture",
+      "tags": ["food"]
+    },
+    {
+      "id": "in-5",
+      "text": "Agent noticed: three captures about bike service this month — consider making it a task",
+      "capturedAt": "@t-2@08:00",
+      "source": "agent",
+      "tags": ["suggestion"]
+    },
+    {
+      "id": "in-6",
+      "text": "Sauna with Theo's group — third Saturday of the month, need to confirm by Wednesday",
+      "capturedAt": "@t-1@22:30",
+      "source": "telegram",
+      "tags": ["social"]
+    },
+    {
+      "id": "in-7",
+      "text": "Spanish word seen on a poster: 'descuento' — discount. Add to flashcards?",
+      "capturedAt": "@t-1@17:02",
+      "source": "capture",
+      "tags": ["spanish", "word"]
+    },
+    {
+      "id": "in-8",
+      "text": "Landlord's approval template — draft a short letter he can just sign",
+      "capturedAt": "@t-0@07:44",
+      "source": "capture",
+      "tags": ["apartment"]
+    }
+  ]
+}

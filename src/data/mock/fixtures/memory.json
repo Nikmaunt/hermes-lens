@@ -1,0 +1,312 @@
+{
+  "items": [
+    {
+      "id": "mem-coffee",
+      "category": "preferences",
+      "topic": "coffee",
+      "fact": "Drinks flat white, no sugar. Avoids coffee after 15:00 — it wrecks his sleep.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-58@09:12",
+      "updatedAt": "@t-20@08:44",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-morning",
+      "category": "routines",
+      "topic": "mornings",
+      "fact": "Best writing hours are 06:30–08:30 before work-brain kicks in. Protect them from scheduling anything.",
+      "sensitivity": "normal",
+      "source": "inferred",
+      "learnedAt": "@t-41@07:05",
+      "updatedAt": "@t-11@06:58",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-sleep-target",
+      "category": "routines",
+      "topic": "sleep",
+      "fact": "Target: lights out by 23:30. Streak tracked as the 'sleep before midnight' habit.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-30@23:40",
+      "updatedAt": "@t-30@23:40",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-eye-exam",
+      "category": "health",
+      "topic": "check-ups",
+      "fact": "Annual eye exam is due each spring; the optician books about three weeks out. Last exam @d-34.",
+      "sensitivity": "sensitive",
+      "source": "telegram",
+      "learnedAt": "@t-84@10:02",
+      "updatedAt": "@t-34@09:30",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-shoes",
+      "category": "health",
+      "topic": "running shoes",
+      "fact": "Swaps running shoes every 700 km — the current pair is at 560 km, so a new pair is due soon.",
+      "sensitivity": "sensitive",
+      "source": "telegram",
+      "learnedAt": "@t-51@19:22",
+      "updatedAt": "@t-16@20:10",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-budget",
+      "category": "finance",
+      "topic": "budget",
+      "fact": "Board-game budget is 95 USD a quarter; expansions count double against it.",
+      "sensitivity": "sensitive",
+      "source": "vault",
+      "learnedAt": "@t-62@21:15",
+      "updatedAt": "@t-9@21:40",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-telescope-jar",
+      "category": "finance",
+      "topic": "savings",
+      "fact": "Telescope jar: saving for a backyard telescope, roughly halfway there; topped up after every finished chapter.",
+      "sensitivity": "sensitive",
+      "source": "vault",
+      "learnedAt": "@t-62@21:20",
+      "updatedAt": "@t-3@08:05",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-clara-visit",
+      "category": "plans",
+      "topic": "family visit",
+      "fact": "Clara wants to visit in early autumn; dates blocked on my side until vacation days are confirmed.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-14@20:30",
+      "updatedAt": "@t-3@20:15",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-b1-exam",
+      "category": "plans",
+      "topic": "Spanish exam",
+      "fact": "Aiming for the autumn B1 session. Registration opens @d+33 — reminder set.",
+      "sensitivity": "normal",
+      "source": "vault",
+      "learnedAt": "@t-26@18:45",
+      "updatedAt": "@t-26@18:45",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-rosa-reschedule",
+      "category": "relationships",
+      "topic": "Rosa",
+      "fact": "Rosa prefers lesson reschedules at least 24 h ahead; short-notice cancellations still get billed.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-40@18:10",
+      "updatedAt": "@t-40@18:10",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-hale-style",
+      "category": "relationships",
+      "topic": "landlord",
+      "fact": "Hale ignores messengers; SMS or a call before noon works best. Always follow up verbal agreements in writing.",
+      "sensitivity": "normal",
+      "source": "inferred",
+      "learnedAt": "@t-18@11:30",
+      "updatedAt": "@t-8@11:10",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-theo-chess",
+      "category": "relationships",
+      "topic": "Theo",
+      "fact": "Chess with Theo on Wednesdays, 20:30 at the club. He's serious about the autumn tournament idea.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-33@22:00",
+      "updatedAt": "@t-2@21:45",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-veg",
+      "category": "preferences",
+      "topic": "food",
+      "fact": "Mostly vegetarian at home; fish when eating out. Strongly dislikes cilantro.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-70@13:20",
+      "updatedAt": "@t-70@13:20",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-podcast",
+      "category": "preferences",
+      "topic": "Spanish input",
+      "fact": "Listens to one Spanish-language podcast episode per commute; prefers true crime and history shows.",
+      "sensitivity": "normal",
+      "source": "inferred",
+      "learnedAt": "@t-22@08:20",
+      "updatedAt": "@t-22@08:20",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-writing-tool",
+      "category": "preferences",
+      "topic": "writing setup",
+      "fact": "Drafts the novel in plain markdown in the vault; hates writing apps with sync conflicts.",
+      "sensitivity": "normal",
+      "source": "vault",
+      "learnedAt": "@t-45@21:55",
+      "updatedAt": "@t-45@21:55",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-birthdays",
+      "category": "identity",
+      "topic": "celebrations",
+      "fact": "Doesn't do surprise parties; birthday dinners small, six people max.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-90@19:00",
+      "updatedAt": "@t-90@19:00",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-languages",
+      "category": "identity",
+      "topic": "languages",
+      "fact": "English native, French fluent, Spanish ~B1 in progress. Prefers English for anything technical.",
+      "sensitivity": "normal",
+      "source": "vault",
+      "learnedAt": "@t-90@19:05",
+      "updatedAt": "@t-26@18:50",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-tz",
+      "category": "identity",
+      "topic": "location",
+      "fact": "Lives in Pacific time; family is three hours ahead — evening calls work best for both.",
+      "sensitivity": "normal",
+      "source": "inferred",
+      "learnedAt": "@t-75@20:40",
+      "updatedAt": "@t-75@20:40",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-run-route",
+      "category": "routines",
+      "topic": "running",
+      "fact": "Runs the river loop (6.5 km) on Tuesday and Saturday mornings when the weather allows.",
+      "sensitivity": "normal",
+      "source": "inferred",
+      "learnedAt": "@t-37@08:15",
+      "updatedAt": "@t-16@20:12",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-groceries",
+      "category": "routines",
+      "topic": "groceries",
+      "fact": "Big grocery run on Saturday after the run; hates shopping on Sundays (crowds + closed stores).",
+      "sensitivity": "normal",
+      "source": "inferred",
+      "learnedAt": "@t-29@12:10",
+      "updatedAt": "@t-29@12:10",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-focus-music",
+      "category": "preferences",
+      "topic": "focus",
+      "fact": "Deep-work playlist: ambient, no vocals. Interruptions before noon cost him the whole writing session.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-48@10:25",
+      "updatedAt": "@t-48@10:25",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-old-address",
+      "category": "misc",
+      "topic": "old address",
+      "fact": "Previous apartment was on 8 Elm Street — still gets occasional mail there; neighbor keeps it.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-95@16:40",
+      "updatedAt": "@t-95@16:40",
+      "pendingFlag": { "action": "forget", "requestedAt": "@t-2@22:31", "status": "pending" }
+    },
+    {
+      "id": "mem-vacation-days",
+      "category": "plans",
+      "topic": "vacation",
+      "fact": "Wants to keep at least one full week of vacation unplanned for spontaneous trips.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-31@19:35",
+      "updatedAt": "@t-31@19:35",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-reno-budget",
+      "category": "finance",
+      "topic": "renovation",
+      "fact": "Renovation cap: 4 000 USD including materials; anything above needs the landlord to co-pay.",
+      "sensitivity": "sensitive",
+      "source": "vault",
+      "learnedAt": "@t-17@17:25",
+      "updatedAt": "@t-17@17:25",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-glasses",
+      "category": "misc",
+      "topic": "glasses",
+      "fact": "Spare glasses live in the desk drawer; prescription updated last winter.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-55@14:12",
+      "updatedAt": "@t-55@14:12",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-bike",
+      "category": "misc",
+      "topic": "bike",
+      "fact": "Bike chain squeaks — needs a service before any longer summer rides. Shop on the corner does same-day.",
+      "sensitivity": "normal",
+      "source": "capture",
+      "learnedAt": "@t-6@18:20",
+      "updatedAt": "@t-6@18:20",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-gift-clara",
+      "category": "relationships",
+      "topic": "gift ideas",
+      "fact": "Clara mentioned wanting a good film camera — candidate for her birthday gift.",
+      "sensitivity": "normal",
+      "source": "telegram",
+      "learnedAt": "@t-3@20:20",
+      "updatedAt": "@t-3@20:20",
+      "pendingFlag": null
+    },
+    {
+      "id": "mem-doctor-pref",
+      "category": "health",
+      "topic": "appointments",
+      "fact": "Prefers morning appointments of any kind; afternoons belong to the writing schedule.",
+      "sensitivity": "sensitive",
+      "source": "inferred",
+      "learnedAt": "@t-44@09:50",
+      "updatedAt": "@t-44@09:50",
+      "pendingFlag": null
+    }
+  ]
+}

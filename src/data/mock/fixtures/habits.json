@@ -1,0 +1,44 @@
+{
+  "habits": [
+    {
+      "id": "habit-spanish",
+      "name": "Spanish practice",
+      "icon": "🇪🇸",
+      "startedOn": "@d-26",
+      "completedDates": [
+        "@d-25", "@d-24", "@d-23", "@d-21", "@d-20", "@d-19", "@d-18", "@d-17",
+        "@d-16", "@d-15", "@d-14", "@d-12", "@d-11", "@d-10", "@d-9", "@d-8",
+        "@d-7", "@d-5", "@d-4", "@d-3", "@d-2", "@d-1"
+      ]
+    },
+    {
+      "id": "habit-gym",
+      "name": "Gym / strength",
+      "icon": "🏋️",
+      "startedOn": "@d-26",
+      "completedDates": ["@d-25", "@d-22", "@d-18", "@d-15", "@d-11", "@d-8", "@d-4", "@d-1"]
+    },
+    {
+      "id": "habit-journal",
+      "name": "Evening journal",
+      "icon": "📓",
+      "startedOn": "@d-26",
+      "completedDates": [
+        "@d-24", "@d-23", "@d-22", "@d-21", "@d-20", "@d-19", "@d-17", "@d-16",
+        "@d-15", "@d-14", "@d-13", "@d-11", "@d-10", "@d-9", "@d-8", "@d-6",
+        "@d-5", "@d-4", "@d-3", "@d-1"
+      ]
+    },
+    {
+      "id": "habit-sleep",
+      "name": "Lights out by 23:30",
+      "icon": "🌙",
+      "startedOn": "@d-26",
+      "completedDates": [
+        "@d-24", "@d-23", "@d-20", "@d-19", "@d-17", "@d-16", "@d-14", "@d-13",
+        "@d-10", "@d-9", "@d-5", "@d-3", "@d-1"
+      ]
+    }
+  ],
+  "generatedAt": "@t-0@08:00"
+}

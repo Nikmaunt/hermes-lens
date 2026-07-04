@@ -1,0 +1,66 @@
+{
+  "projects": [
+    {
+      "id": "proj-vps",
+      "name": "VPS setup",
+      "status": "active",
+      "summary": "Move Hermes Agent from the old Raspberry Pi to a proper VPS: vault sync, SQLite memory, Telegram gateway, nightly backups, Tailscale-only access.",
+      "nextAction": "Write the read-only JSON API for Hermes Lens (contract is ready)",
+      "keyDates": [
+        { "label": "Migration started", "date": "@d-19" },
+        { "label": "Backups verified", "date": "@d-6" }
+      ],
+      "linkedNotes": [
+        { "id": "note-vps-plan", "title": "VPS migration plan", "updatedAt": "@t-6@21:40" },
+        { "id": "note-vps-hardening", "title": "Hardening checklist", "updatedAt": "@t-12@19:05" },
+        { "id": "note-api-contract", "title": "Lens API sketch", "updatedAt": "@t-2@22:18" }
+      ],
+      "updatedAt": "@t-1@21:15"
+    },
+    {
+      "id": "proj-novel",
+      "name": "Novel",
+      "status": "active",
+      "summary": "First draft of the sci-fi novel. Target: 90k words. Currently 41k words across six chapters.",
+      "nextAction": "Outline chapter 7 — the station blackout sequence",
+      "keyDates": [
+        { "label": "Draft deadline (self-imposed)", "date": "@d+88" },
+        { "label": "Writing group review", "date": "@d+11" }
+      ],
+      "linkedNotes": [
+        { "id": "note-novel-outline", "title": "Master outline", "updatedAt": "@t-3@23:02" },
+        { "id": "note-novel-chars", "title": "Character sheets", "updatedAt": "@t-9@22:30" }
+      ],
+      "updatedAt": "@t-3@23:05"
+    },
+    {
+      "id": "proj-apartment",
+      "name": "Apartment renovation",
+      "status": "paused",
+      "summary": "Kitchen refresh and bathroom regrouting. Paused until the landlord approves the changes in writing.",
+      "nextAction": "Ping Mr. Hale if no written approval by @d+10",
+      "keyDates": [
+        { "label": "Quote from contractor valid until", "date": "@d+24" }
+      ],
+      "linkedNotes": [
+        { "id": "note-reno-quotes", "title": "Contractor quotes", "updatedAt": "@t-15@17:22" }
+      ],
+      "updatedAt": "@t-8@10:44"
+    },
+    {
+      "id": "proj-spanish-b1",
+      "name": "Spanish B1 exam",
+      "status": "active",
+      "summary": "Certificate exam in autumn. Weekly lessons with Rosa, daily flashcards, one podcast episode per commute.",
+      "nextAction": "Finish mock reading test #3, review mistakes with Rosa",
+      "keyDates": [
+        { "label": "Exam registration opens", "date": "@d+33" },
+        { "label": "Exam (expected)", "date": "@d+94" }
+      ],
+      "linkedNotes": [
+        { "id": "note-spanish-plan", "title": "B1 study plan", "updatedAt": "@t-5@08:12" }
+      ],
+      "updatedAt": "@t-2@08:30"
+    }
+  ]
+}

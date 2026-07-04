@@ -1,0 +1,64 @@
+{
+  "decisions": [
+    {
+      "id": "dec-vps-provider",
+      "title": "Host Hermes on a Hetzner CX22 instead of the Raspberry Pi",
+      "decidedOn": "@d-19",
+      "context": "The Pi kept corrupting its SD card and couldn't run the embedding model for vault search.",
+      "reasoning": "CX22 is cheap, EU-hosted, has enough RAM for SQLite + embeddings, and snapshots make backups trivial. Tailscale removes the need for a public endpoint.",
+      "alternatives": ["Keep the Raspberry Pi with an SSD hat", "Oracle free tier ARM", "Mini PC at home"],
+      "projectId": "proj-vps",
+      "revisitBy": "@d+70"
+    },
+    {
+      "id": "dec-agent-write-access",
+      "title": "The phone app gets exactly one write endpoint (capture)",
+      "decidedOn": "@d-9",
+      "context": "Designing the Lens API contract — how much should the phone be able to change?",
+      "reasoning": "The agent owns the vault; the phone is a lens. Capture plus queued flag/triage requests keep the failure surface tiny and make the API trivial to secure and reimplement.",
+      "alternatives": ["Full CRUD from the phone", "Read-only with no capture"],
+      "projectId": "proj-vps",
+      "revisitBy": null
+    },
+    {
+      "id": "dec-novel-pov",
+      "title": "Rewrite the novel in third person limited",
+      "decidedOn": "@d-13",
+      "context": "First-person voice collapsed once the second POV character appeared in chapter 5.",
+      "reasoning": "Third limited keeps the intimacy but allows POV switches per chapter. Costs a two-day rewrite of chapters 1–2, saves the structure.",
+      "alternatives": ["Dual first-person with chapter labels", "Omniscient narrator"],
+      "projectId": "proj-novel",
+      "revisitBy": null
+    },
+    {
+      "id": "dec-reno-pause",
+      "title": "Pause the renovation until written landlord approval",
+      "decidedOn": "@d-8",
+      "context": "Contractor pushed to start next month; Hale only approved verbally.",
+      "reasoning": "Verbal approval is worthless if the lease ends in dispute. The quote stays valid three more weeks, so waiting costs nothing yet.",
+      "alternatives": ["Start with reversible changes only", "Proceed on verbal approval"],
+      "projectId": "proj-apartment",
+      "revisitBy": "@d+10"
+    },
+    {
+      "id": "dec-spanish-exam-level",
+      "title": "Register for B1, not B2",
+      "decidedOn": "@d-26",
+      "context": "Rosa assessed current level as strong A2/weak B1 after mock test #1.",
+      "reasoning": "A certain B1 pass in autumn beats a risky B2. The certificate matters for the evening-course application; the level itself matters less.",
+      "alternatives": ["B2 with an intensive summer course", "Skip the autumn session entirely"],
+      "projectId": "proj-spanish-b1",
+      "revisitBy": "@d+33"
+    },
+    {
+      "id": "dec-phone-lens",
+      "title": "Build Hermes Lens as a Capacitor SPA, not a native app",
+      "decidedOn": "@d-11",
+      "context": "Choosing the stack for the phone dashboard.",
+      "reasoning": "One TypeScript codebase, the whole data layer is shared with the future web view, and native surface is only needed for biometrics and the widget. I can ship it alone in evenings.",
+      "alternatives": ["Kotlin + Compose", "Flutter", "Plain PWA without a wrapper"],
+      "projectId": "proj-vps",
+      "revisitBy": null
+    }
+  ]
+}

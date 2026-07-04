@@ -1,0 +1,60 @@
+{
+  "gateway": {
+    "alive": true,
+    "lastHeartbeat": "@t-0@07:58"
+  },
+  "cronJobs": [
+    {
+      "id": "cron-morning-brief",
+      "name": "Morning brief → Telegram",
+      "schedule": "daily 07:00",
+      "lastRun": "@t-0@07:00",
+      "lastResult": "ok"
+    },
+    {
+      "id": "cron-inbox-sweep",
+      "name": "Inbox sweep & tagging",
+      "schedule": "every 4 h",
+      "lastRun": "@t-0@04:00",
+      "lastResult": "ok"
+    },
+    {
+      "id": "cron-memory-distill",
+      "name": "Memory distillation",
+      "schedule": "daily 03:30",
+      "lastRun": "@t-0@03:30",
+      "lastResult": "ok"
+    },
+    {
+      "id": "cron-vault-backup",
+      "name": "Vault backup → object storage",
+      "schedule": "daily 02:00",
+      "lastRun": "@t-0@02:00",
+      "lastResult": "ok"
+    },
+    {
+      "id": "cron-doc-watch",
+      "name": "Document deadline watch",
+      "schedule": "daily 08:00",
+      "lastRun": "@t-1@08:00",
+      "lastResult": "error"
+    }
+  ],
+  "lastBackup": {
+    "at": "@t-0@02:04",
+    "sizeBytes": 48234511,
+    "target": "s3://hermes-backup/vault"
+  },
+  "system": {
+    "diskUsedBytes": 13314398208,
+    "diskTotalBytes": 42949672960,
+    "ramUsedBytes": 2040109465,
+    "ramTotalBytes": 4294967296,
+    "uptimeSeconds": 1580400
+  },
+  "tokenSpend": {
+    "todayUsd": 0.42,
+    "monthUsd": 8.73
+  },
+  "generatedAt": "@t-0@08:00"
+}

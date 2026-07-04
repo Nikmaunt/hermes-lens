@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+/*
+ * Semantic design tokens. Dark is the default; `.light` on <html> overrides.
+ * Tailwind utilities are generated from the @theme mapping below, so
+ * components use classes like bg-surface, text-ink, border-line.
+ */
+:root {
+  --hl-bg: #0b0d12;
+  --hl-surface: #12161f;
+  --hl-raised: #1a2030;
+  --hl-line: #232a3a;
+  --hl-ink: #e9ecf4;
+  --hl-muted: #98a2b8;
+  --hl-faint: #5c6579;
+  --hl-accent: #e3b458;
+  --hl-accent-ink: #14100a;
+  --hl-accent-dim: rgba(227, 180, 88, 0.13);
+  --hl-danger: #ed6a5e;
+  --hl-danger-dim: rgba(237, 106, 94, 0.14);
+  --hl-ok: #57b47c;
+  --hl-ok-dim: rgba(87, 180, 124, 0.14);
+  --hl-warn: #e2a33c;
+  --hl-warn-dim: rgba(226, 163, 60, 0.16);
+  color-scheme: dark;
+}
+
+html.light {
+  --hl-bg: #f2f3f6;
+  --hl-surface: #ffffff;
+  --hl-raised: #ffffff;
+  --hl-line: #e2e5ec;
+  --hl-ink: #191d28;
+  --hl-muted: #5f6880;
+  --hl-faint: #9aa2b5;
+  --hl-accent: #b07f1e;
+  --hl-accent-ink: #ffffff;
+  --hl-accent-dim: rgba(176, 127, 30, 0.12);
+  --hl-danger: #cf3f34;
+  --hl-danger-dim: rgba(207, 63, 52, 0.1);
+  --hl-ok: #2e7d4f;
+  --hl-ok-dim: rgba(46, 125, 79, 0.12);
+  --hl-warn: #a8690b;
+  --hl-warn-dim: rgba(168, 105, 11, 0.14);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--hl-bg);
+  --color-surface: var(--hl-surface);
+  --color-raised: var(--hl-raised);
+  --color-line: var(--hl-line);
+  --color-ink: var(--hl-ink);
+  --color-muted: var(--hl-muted);
+  --color-faint: var(--hl-faint);
+  --color-accent: var(--hl-accent);
+  --color-accent-ink: var(--hl-accent-ink);
+  --color-accent-dim: var(--hl-accent-dim);
+  --color-danger: var(--hl-danger);
+  --color-danger-dim: var(--hl-danger-dim);
+  --color-ok: var(--hl-ok);
+  --color-ok-dim: var(--hl-ok-dim);
+  --color-warn: var(--hl-warn);
+  --color-warn-dim: var(--hl-warn-dim);
+
+  --font-sans:
+    'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --radius-card: 1.05rem;
+
+  --animate-fade-up: fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--hl-bg);
+  color: var(--hl-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+/* Numbers in data views must line up. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hide scrollbars — this is a phone app, not a document. */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  scrollbar-width: none;
+}
+
+button {
+  touch-action: manipulation;
+}

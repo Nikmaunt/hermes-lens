@@ -1,0 +1,92 @@
+{
+  "items": [
+    {
+      "id": "doc-rent",
+      "title": "Apartment lease — 12 Example Lane",
+      "kind": "contract",
+      "provider": "Mr. Hale (landlord)",
+      "amount": { "cents": 320000, "currency": "USD" },
+      "billingPeriod": "monthly",
+      "renewsOn": "@d+87",
+      "cancelBy": "@d+56",
+      "notes": "One month notice. Deposit 3200 USD held."
+    },
+    {
+      "id": "doc-gym",
+      "title": "Gym membership — FitZone",
+      "kind": "subscription",
+      "provider": "FitZone LLC",
+      "amount": { "cents": 14900, "currency": "USD" },
+      "billingPeriod": "monthly",
+      "renewsOn": "@d+8",
+      "cancelBy": "@d+3",
+      "notes": "Annual contract auto-renews unless cancelled in the app."
+    },
+    {
+      "id": "doc-netflix",
+      "title": "Netflix Standard",
+      "kind": "subscription",
+      "provider": "Netflix",
+      "amount": { "cents": 4500, "currency": "USD" },
+      "billingPeriod": "monthly",
+      "renewsOn": "@d+9",
+      "cancelBy": null,
+      "notes": null
+    },
+    {
+      "id": "doc-spotify",
+      "title": "Spotify Premium",
+      "kind": "subscription",
+      "provider": "Spotify",
+      "amount": { "cents": 2399, "currency": "USD" },
+      "billingPeriod": "monthly",
+      "renewsOn": "@d+3",
+      "cancelBy": null,
+      "notes": null
+    },
+    {
+      "id": "doc-vps",
+      "title": "VPS — CX22 (Hermes host)",
+      "kind": "subscription",
+      "provider": "Hetzner",
+      "amount": { "cents": 799, "currency": "EUR" },
+      "billingPeriod": "monthly",
+      "renewsOn": "@d+17",
+      "cancelBy": null,
+      "notes": "Hosts the agent, vault and SQLite memory."
+    },
+    {
+      "id": "doc-domain",
+      "title": "Domain — personal site",
+      "kind": "subscription",
+      "provider": "Porkbun",
+      "amount": { "cents": 1200, "currency": "USD" },
+      "billingPeriod": "yearly",
+      "renewsOn": "@d+140",
+      "cancelBy": null,
+      "notes": null
+    },
+    {
+      "id": "doc-insurance",
+      "title": "Apartment contents insurance",
+      "kind": "insurance",
+      "provider": "HomeSure",
+      "amount": { "cents": 38400, "currency": "USD" },
+      "billingPeriod": "yearly",
+      "renewsOn": "@d+21",
+      "cancelBy": "@d+7",
+      "notes": "Covers 20 000 USD. Re-quote before renewal — premium went up 12%."
+    },
+    {
+      "id": "doc-passport",
+      "title": "Passport",
+      "kind": "id-document",
+      "provider": "Consulate",
+      "amount": null,
+      "billingPeriod": null,
+      "renewsOn": "@d+412",
+      "cancelBy": null,
+      "notes": "Renewal appointment takes ~3 months to get. Start around @d+320."
+    }
+  ]
+}

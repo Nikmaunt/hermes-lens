@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hermes Lens</string>
+    <string name="title_activity_main">Hermes Lens</string>
+    <string name="package_name">app.hermes.lens</string>
+    <string name="custom_url_scheme">app.hermes.lens</string>
+    <string name="widget_title">◈ HERMES LENS</string>
+    <string name="widget_description">Today summary: follow-ups, next deadline, inbox count</string>
+</resources>

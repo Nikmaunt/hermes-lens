@@ -1,0 +1,39 @@
+{
+  "followUps": [
+    {
+      "id": "fu-1",
+      "title": "Reply to Rosa about moving Thursday's lesson",
+      "dueDate": "@d-1",
+      "source": "telegram, agent noticed unanswered question",
+      "urgency": "overdue"
+    },
+    {
+      "id": "fu-2",
+      "title": "Confirm dentist appointment for next week",
+      "dueDate": "@d+0",
+      "source": "captured note from @d-4",
+      "urgency": "today"
+    },
+    {
+      "id": "fu-3",
+      "title": "Decide: keep or cancel gym membership",
+      "dueDate": "@d+3",
+      "source": "document watch: cancel window closing",
+      "urgency": "soon"
+    },
+    {
+      "id": "fu-4",
+      "title": "Send Clara the apartment photos she asked for",
+      "dueDate": "@d+2",
+      "source": "telegram thread with Clara",
+      "urgency": "soon"
+    },
+    {
+      "id": "fu-5",
+      "title": "Book a slot for the driving licence photo",
+      "dueDate": "@d+6",
+      "source": "captured note from @d-9",
+      "urgency": "soon"
+    }
+  ]
+}
