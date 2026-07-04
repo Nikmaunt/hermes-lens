@@ -1,0 +1,44 @@
+{
+  "revision": "rev-2b7f31",
+  "items": [
+    {
+      "id": "rem-lease-renewal",
+      "title": "Apartment lease renewal decision",
+      "dueAt": "@t+6@10:00",
+      "leadTimeMinutes": 1440,
+      "notes": "Landlord needs an answer; agent drafted the comparison in Documents.",
+      "critical": true,
+      "sourceRef": "doc-lease"
+    },
+    {
+      "id": "rem-rosa-lesson",
+      "title": "Spanish lesson with Rosa",
+      "dueAt": "@t+1@17:30",
+      "leadTimeMinutes": 60,
+      "critical": false,
+      "sourceRef": "person-rosa"
+    },
+    {
+      "id": "rem-vault-key-rotation",
+      "title": "Rotate the vault backup key",
+      "dueAt": "@t+13@09:00",
+      "leadTimeMinutes": 120,
+      "notes": "Quarterly rotation — runbook is in the agent's memory.",
+      "critical": true
+    },
+    {
+      "id": "rem-dentist",
+      "title": "Dentist check-up",
+      "dueAt": "@t+3@11:30",
+      "leadTimeMinutes": 90,
+      "critical": false
+    },
+    {
+      "id": "rem-novel-backup",
+      "title": "Send novel draft to beta reader",
+      "dueAt": "@t+8@18:00",
+      "critical": false,
+      "sourceRef": "proj-novel"
+    }
+  ]
+}

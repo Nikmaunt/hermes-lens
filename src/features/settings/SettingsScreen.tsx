@@ -21,7 +21,8 @@ function describeMutation(item: QueuedMutation): string {
     return `Capture: “${text}”`
   }
   if (item.kind === 'triage') return `Triage ${item.itemId} → ${item.req.destination}`
-  return `Flag ${item.itemId}: ${item.req.action}`
+  if (item.kind === 'flag') return `Flag ${item.itemId}: ${item.req.action}`
+  return `Calendar sync ack (${item.req.lastSeenRevision})`
 }
 
 const DIRECTIONS: { key: keyof SwipeMapping; label: string; arrow: string }[] = [

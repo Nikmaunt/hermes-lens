@@ -13,7 +13,10 @@ import type {
   PeopleResponse,
   PolishWordsResponse,
   ProjectsResponse,
+  RemindersResponse,
   SearchResponse,
+  SyncAckRequest,
+  SyncAckResponse,
   TimelineResponse,
   TodaySummary,
   TriageRequest,
@@ -44,9 +47,11 @@ export interface DataSource {
   getHabits(): Promise<HabitsResponse>
   getPolishWords(): Promise<PolishWordsResponse>
   getInbox(): Promise<InboxResponse>
+  getReminders(): Promise<RemindersResponse>
   search(query: string): Promise<SearchResponse>
 
   capture(req: CaptureRequest): Promise<CaptureResponse>
   triage(itemId: string, req: TriageRequest): Promise<TriageResponse>
   flagMemory(itemId: string, req: FlagRequest): Promise<FlagResponse>
+  ackSync(req: SyncAckRequest): Promise<SyncAckResponse>
 }

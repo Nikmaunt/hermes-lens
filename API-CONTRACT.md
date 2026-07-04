@@ -38,10 +38,12 @@ Error shape (any non-2xx): `{ "error": "<human readable message>" }`.
 | GET | `/api/habits` | habit definitions + completed dates (from agent logs) | `HabitsResponse` — [`schemas/habits.ts`](src/schemas/habits.ts) |
 | GET | `/api/polish-words` | flashcard word list (review state stays on-device) | `PolishWordsResponse` — [`schemas/polish.ts`](src/schemas/polish.ts) |
 | GET | `/api/inbox` | unprocessed notes, oldest first | `InboxResponse` — [`schemas/inbox.ts`](src/schemas/inbox.ts) |
+| GET | `/api/reminders` | dated commitments to mirror into the phone calendar | `RemindersResponse` — [`schemas/reminders.ts`](src/schemas/reminders.ts) |
 | GET | `/api/search?q=` | grouped full-text search across all collections | `SearchResponse` — [`schemas/search.ts`](src/schemas/search.ts) |
 | POST | `/api/capture` | the **only** general write: drop a note into the agent inbox | `CaptureResponse` — [`schemas/capture.ts`](src/schemas/capture.ts) |
 | POST | `/api/inbox/{id}/triage` | file an inbox note to a destination | `TriageResponse` — [`schemas/inbox.ts`](src/schemas/inbox.ts) |
 | POST | `/api/memory/{id}/flag` | queue a forget / mark-sensitive request **for the agent** | `FlagResponse` — [`schemas/memory.ts`](src/schemas/memory.ts) |
+| POST | `/api/sync/ack` | phone confirms it applied a reminders revision | `SyncAckResponse` — [`schemas/sync.ts`](src/schemas/sync.ts) |
 
 ### Semantics that matter
 
@@ -60,8 +62,14 @@ Error shape (any non-2xx): `{ "error": "<human readable message>" }`.
   It queues the request for the agent to act on and replies
   `{ "status": "pending", "itemId": "…" }`. Until the agent confirms, the item
   is served with `pendingFlag` set.
-- **Idempotency** — triage and flag on an already-processed item return the
-  same success shape (the app retries queued mutations after being offline).
+- **`/api/reminders`** — `items[]` are the dated commitments the phone
+  mirrors into its local calendar: `{ id, title, dueAt (ISO-8601 with
+  offset), leadTimeMinutes?, notes?, critical: boolean, sourceRef? }`.
+  The feed-level `revision` is an **opaque string** that changes whenever any
+  item changes; the client skips the whole calendar sync when it matches the
+  last applied revision. `critical: true` marks reminders the client must
+  never drop silently. `sourceRef` is an opaque pointer back to the
+  agent-side source (note/document/project id).
 - **`/api/search` and sensitive memory** — results carry a `sensitive`
   boolean. For memory items marked sensitive, the server must match only on
   the `topic` (never the fact text), return an **empty** `snippet`, and set
@@ -73,14 +81,33 @@ Error shape (any non-2xx): `{ "error": "<human readable message>" }`.
 ### `POST /api/capture`
 
 ```json
-{ "text": "Idea for the novel: the station AI hides log entries", "tags": ["novel", "idea"] }
+{
+  "text": "Idea for the novel: the station AI hides log entries",
+  "tags": ["novel", "idea"],
+  "clientId": "9f4b2c1e-7d31-4c1a-9b64-0a4d5e8f1c22"
+}
 ```
+
+`clientId` is **optional** (additive): a client-generated id that stays the
+same across retries of the same capture. See Idempotency below.
 
 → `201/200`:
 
 ```json
 { "status": "ok", "id": "cap-1751628000000", "capturedAt": "2026-07-04T12:00:00+02:00" }
 ```
+
+### `POST /api/sync/ack`
+
+```json
+{ "syncedAt": "2026-07-04T12:00:00+02:00", "lastSeenRevision": "rev-2b7f31" }
+```
+
+Sent (through the offline mutation queue) after the phone has applied a
+reminders revision to its calendar. Idempotent — acknowledging the same
+revision twice is a no-op.
+
+→ `{ "status": "ok" }`
 
 ### `POST /api/inbox/{id}/triage`
 
@@ -101,6 +128,22 @@ Error shape (any non-2xx): `{ "error": "<human readable message>" }`.
 `action` ∈ `forget | mark-sensitive`; `reason` optional.
 
 → `{ "status": "pending", "itemId": "mem-old-address" }`
+
+## Idempotency
+
+The app replays queued mutations after being offline, and a replay can race a
+request whose response was lost. Server obligations:
+
+- **capture** — when the body carries a `clientId` the server has already
+  accepted, do **not** create a second inbox item: return the same success
+  shape (same `id`/`capturedAt`) as the first accept. Captures without
+  `clientId` are taken at face value (legacy behavior). The bundled
+  MockDataSource implements the same dedup so the behavior is testable
+  offline.
+- **triage / flag** — acting on an already-processed item returns the same
+  success shape as the first call.
+- **sync-ack** — acknowledging any revision (current or stale) always returns
+  `{ "status": "ok" }`; the server just records the latest.
 
 ## Example responses
 

@@ -11,12 +11,15 @@ import {
   PeopleResponse,
   PolishWordsResponse,
   ProjectsResponse,
+  RemindersResponse,
   SearchResponse,
+  SyncAckResponse,
   TimelineResponse,
   TodaySummary,
   TriageResponse,
   type CaptureRequest,
   type FlagRequest,
+  type SyncAckRequest,
   type TriageRequest,
 } from '@/schemas'
 import type { DataSource, TimelineParams } from './DataSource'
@@ -159,6 +162,10 @@ export class ApiDataSource implements DataSource {
     return this.request(InboxResponse, '/api/inbox')
   }
 
+  getReminders(): Promise<RemindersResponse> {
+    return this.request(RemindersResponse, '/api/reminders')
+  }
+
   search(query: string): Promise<SearchResponse> {
     return this.request(SearchResponse, `/api/search?q=${encodeURIComponent(query)}`)
   }
@@ -173,5 +180,9 @@ export class ApiDataSource implements DataSource {
 
   flagMemory(itemId: string, req: FlagRequest): Promise<FlagResponse> {
     return this.request(FlagResponse, `/api/memory/${encodeURIComponent(itemId)}/flag`, req)
+  }
+
+  ackSync(req: SyncAckRequest): Promise<SyncAckResponse> {
+    return this.request(SyncAckResponse, '/api/sync/ack', req)
   }
 }

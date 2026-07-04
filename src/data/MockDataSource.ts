@@ -15,9 +15,12 @@ import {
   PeopleResponse,
   PolishWordsResponse,
   ProjectsResponse,
+  RemindersResponse,
   SearchResponse,
   SearchResult,
   SearchResultKind,
+  SyncAckRequest,
+  SyncAckResponse,
   TimelineResponse,
   TodaySummary,
   TriageRequest,
@@ -41,6 +44,7 @@ import decisionsFixture from './mock/fixtures/decisions.json'
 import habitsFixture from './mock/fixtures/habits.json'
 import polishFixture from './mock/fixtures/polish-words.json'
 import inboxFixture from './mock/fixtures/inbox.json'
+import remindersFixture from './mock/fixtures/reminders.json'
 
 const TIMELINE_PAGE_SIZE = 25
 
@@ -49,9 +53,16 @@ interface MockOverlay {
   capturedItems: InboxItem[]
   triagedIds: string[]
   flags: Record<string, { action: 'forget' | 'mark-sensitive'; requestedAt: string }>
+  /** clientId → response of the first capture, for offline-replay dedup. */
+  captureClientIds: Record<string, CaptureResponse>
 }
 
-const EMPTY_OVERLAY: MockOverlay = { capturedItems: [], triagedIds: [], flags: {} }
+const EMPTY_OVERLAY: MockOverlay = {
+  capturedItems: [],
+  triagedIds: [],
+  flags: {},
+  captureClientIds: {},
+}
 const OVERLAY_KEY = 'mock:overlay'
 
 function sleep(ms: number): Promise<void> {
@@ -80,6 +91,7 @@ export class MockDataSource implements DataSource {
   private habits: HabitsResponse
   private polishWords: PolishWordsResponse
   private inboxItems: InboxItem[]
+  private reminders: RemindersResponse
 
   constructor(
     private kv: KV,
@@ -101,6 +113,7 @@ export class MockDataSource implements DataSource {
     this.habits = HabitsResponse.parse(materialize(habitsFixture, now))
     this.polishWords = PolishWordsResponse.parse(materialize(polishFixture, now))
     this.inboxItems = InboxResponse.shape.items.parse(materialize(inboxFixture.items, now))
+    this.reminders = RemindersResponse.parse(materialize(remindersFixture, now))
     this.overlayLoaded = this.loadOverlay()
   }
 
@@ -254,6 +267,11 @@ export class MockDataSource implements DataSource {
     return { items: this.currentInbox() }
   }
 
+  async getReminders(): Promise<RemindersResponse> {
+    await this.ready()
+    return this.reminders
+  }
+
   async search(query: string): Promise<SearchResponse> {
     await this.ready()
     const q = query.trim().toLowerCase()
@@ -344,6 +362,13 @@ export class MockDataSource implements DataSource {
 
   async capture(req: CaptureRequest): Promise<CaptureResponse> {
     await this.ready()
+    // Idempotent replay: a clientId we have already accepted returns the
+    // original response instead of creating a duplicate inbox item —
+    // mirroring the server-side dedup contract (F6).
+    if (req.clientId !== undefined) {
+      const previous = this.overlay.captureClientIds[req.clientId]
+      if (previous !== undefined) return previous
+    }
     const now = new Date()
     const item: InboxItem = {
       id: `cap-${now.getTime()}`,
@@ -353,8 +378,10 @@ export class MockDataSource implements DataSource {
       tags: req.tags,
     }
     this.overlay.capturedItems.push(item)
+    const response: CaptureResponse = { status: 'ok', id: item.id, capturedAt: item.capturedAt }
+    if (req.clientId !== undefined) this.overlay.captureClientIds[req.clientId] = response
     await this.saveOverlay()
-    return { status: 'ok', id: item.id, capturedAt: item.capturedAt }
+    return response
   }
 
   async triage(itemId: string, _req: TriageRequest): Promise<TriageResponse> {
@@ -369,5 +396,11 @@ export class MockDataSource implements DataSource {
     this.overlay.flags[itemId] = { action: req.action, requestedAt: toIsoDateTime(new Date()) }
     await this.saveOverlay()
     return { status: 'pending', itemId }
+  }
+
+  async ackSync(_req: SyncAckRequest): Promise<SyncAckResponse> {
+    await this.ready()
+    // Idempotent by construction: acknowledging a revision is a no-op here.
+    return { status: 'ok' }
   }
 }
