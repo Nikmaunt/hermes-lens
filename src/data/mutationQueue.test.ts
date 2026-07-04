@@ -72,6 +72,60 @@ describe('mutation queue', () => {
     expect(await queue.count()).toBe(0)
   })
 
+  it('does not double-send items when drains overlap', async () => {
+    // Regression: drain() had no serialization, so a second drain starting
+    // while the first was mid-flight (fast resume + "Sync now") loaded the
+    // same items and replayed them again — duplicate captures on the server.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const capture = vi.fn(async () => {
+      await gate
+      return {}
+    })
+    const ds = fakeDataSource(capture as unknown as () => Promise<unknown>)
+
+    const first = queue.drain(ds)
+    const second = queue.drain(ds)
+    release()
+    const flushed = (await first) + (await second)
+
+    expect(capture).toHaveBeenCalledTimes(1)
+    expect(flushed).toBe(1)
+    expect(await queue.count()).toBe(0)
+  })
+
+  it('does not lose a mutation enqueued while a drain is in flight', async () => {
+    // Regression: drain() saved back its stale snapshot of the queue, wiping
+    // any item enqueued after the drain had loaded but before it saved.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const ds = fakeDataSource(async () => {
+      await gate
+      return {}
+    })
+
+    const draining = queue.drain(ds)
+    await new Promise((resolve) => setTimeout(resolve, 0)) // let drain load the queue
+    const enqueued = queue.enqueue(captureItem(2))
+    release()
+    await draining
+    await enqueued
+
+    // Item 2 was never sent, so it must still be queued.
+    expect(await queue.count()).toBe(1)
+    expect((await queue.peek())[0]?.id).toBe('q2')
+  })
+
   it('notifies count listeners', async () => {
     const queue = createMutationQueue(new MemoryKV())
     const counts: number[] = []

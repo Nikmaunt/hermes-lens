@@ -22,6 +22,20 @@ const KEY = 'mutation-queue'
 export function createMutationQueue(kv: KV) {
   const listeners = new Set<(count: number) => void>()
 
+  // All read-modify-write operations run one at a time: an overlapping pair
+  // of drains would replay the same items twice (captures are not
+  // idempotent), and an enqueue racing a drain could be wiped when the drain
+  // saved back its stale snapshot of the queue.
+  let chain: Promise<unknown> = Promise.resolve()
+  function serialized<T>(op: () => Promise<T>): Promise<T> {
+    const result = chain.then(op, op)
+    chain = result.then(
+      () => undefined,
+      () => undefined,
+    )
+    return result
+  }
+
   async function load(): Promise<QueuedMutation[]> {
     const raw = await kv.get(KEY)
     if (raw === null) return []
@@ -38,10 +52,12 @@ export function createMutationQueue(kv: KV) {
   }
 
   return {
-    async enqueue(item: QueuedMutation): Promise<void> {
-      const items = await load()
-      items.push(item)
-      await save(items)
+    enqueue(item: QueuedMutation): Promise<void> {
+      return serialized(async () => {
+        const items = await load()
+        items.push(item)
+        await save(items)
+      })
     },
 
     async count(): Promise<number> {
@@ -58,28 +74,30 @@ export function createMutationQueue(kv: KV) {
      * keeps the remainder queued; mutations for the other source are always
      * kept untouched. Returns how many were flushed.
      */
-    async drain(ds: DataSource): Promise<number> {
-      const items = await load()
-      const kept: QueuedMutation[] = []
-      let flushed = 0
-      let failed = false
-      for (const item of items) {
-        if (item.source !== ds.kind || failed) {
-          kept.push(item)
-          continue
+    drain(ds: DataSource): Promise<number> {
+      return serialized(async () => {
+        const items = await load()
+        const kept: QueuedMutation[] = []
+        let flushed = 0
+        let failed = false
+        for (const item of items) {
+          if (item.source !== ds.kind || failed) {
+            kept.push(item)
+            continue
+          }
+          try {
+            if (item.kind === 'capture') await ds.capture(item.req)
+            else if (item.kind === 'triage') await ds.triage(item.itemId, item.req)
+            else await ds.flagMemory(item.itemId, item.req)
+            flushed++
+          } catch {
+            failed = true
+            kept.push(item)
+          }
         }
-        try {
-          if (item.kind === 'capture') await ds.capture(item.req)
-          else if (item.kind === 'triage') await ds.triage(item.itemId, item.req)
-          else await ds.flagMemory(item.itemId, item.req)
-          flushed++
-        } catch {
-          failed = true
-          kept.push(item)
-        }
-      }
-      if (flushed > 0) await save(kept)
-      return flushed
+        if (flushed > 0) await save(kept)
+        return flushed
+      })
     },
 
     onCountChange(fn: (count: number) => void): () => void {
