@@ -55,4 +55,6 @@
     <!-- Reminders → calendar sync (runtime-gated, local Hermes calendar by default) -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+    <!-- Voice capture (runtime-gated; audio never leaves the on-device recognizer) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 </manifest>

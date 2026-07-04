@@ -21,6 +21,7 @@
     "@capacitor/app": "8.1.0",
     "@capacitor/core": "8.4.1",
     "@capacitor/preferences": "8.0.1",
+    "@capgo/capacitor-speech-recognition": "^8.1.9",
     "@tanstack/react-query": "5.101.2",
     "react": "19.2.7",
     "react-dom": "19.2.7",

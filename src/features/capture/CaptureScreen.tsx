@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useCapture } from '@/hooks/mutations'
+import { useVoiceCapture } from './voice'
 
 const QUICK_TAGS = ['idea', 'todo', 'polish', 'novel', 'money', 'apartment'] as const
 
@@ -16,6 +17,9 @@ export function CaptureScreen() {
   const snackbar = useSnackbar()
   const location = useLocation()
   const navigate = useNavigate()
+  const voice = useVoiceCapture((spoken) => {
+    setText((prev) => (prev.trim() === '' ? spoken : `${prev.trimEnd()}\n${spoken}`))
+  })
 
   // Text arriving from the Android share sheet prefills the note for review —
   // nothing is sent until the user confirms with the normal Send button.
@@ -77,6 +81,20 @@ export function CaptureScreen() {
         className="w-full resize-none rounded-(--radius-card) border border-line bg-surface p-4 text-[15px] leading-relaxed outline-none placeholder:text-faint focus:border-accent"
       />
 
+      {voice.state === 'recording' && (
+        <div className="border-accent/40 bg-accent-dim mt-3 rounded-lg border px-3 py-2">
+          <div className="text-accent flex items-center gap-2 text-xs font-medium">
+            <span className="bg-danger inline-block h-2 w-2 animate-pulse rounded-full" aria-hidden />
+            Listening — tap the mic to stop
+          </div>
+          {voice.partial !== '' && (
+            <div className="mt-1 text-sm text-muted" aria-live="polite">
+              {voice.partial}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {QUICK_TAGS.map((tag) => (
           <button
@@ -117,13 +135,29 @@ export function CaptureScreen() {
         />
       </div>
 
-      <button
-        onClick={submit}
-        disabled={text.trim() === ''}
-        className="bg-accent text-accent-ink mt-5 w-full rounded-(--radius-card) py-3.5 text-[15px] font-semibold transition-opacity active:opacity-80 disabled:opacity-30"
-      >
-        Send to Hermes
-      </button>
+      <div className="mt-5 flex gap-2">
+        <button
+          onClick={submit}
+          disabled={text.trim() === ''}
+          className="bg-accent text-accent-ink flex-1 rounded-(--radius-card) py-3.5 text-[15px] font-semibold transition-opacity active:opacity-80 disabled:opacity-30"
+        >
+          Send to Hermes
+        </button>
+        {voice.state !== 'unavailable' && (
+          <button
+            onClick={() => (voice.state === 'recording' ? voice.stop() : void voice.start())}
+            aria-label={voice.state === 'recording' ? 'Stop dictation' : 'Dictate a note'}
+            aria-pressed={voice.state === 'recording'}
+            className={`w-14 rounded-(--radius-card) border text-xl transition-colors ${
+              voice.state === 'recording'
+                ? 'border-danger bg-danger-dim text-danger'
+                : 'border-line bg-surface text-muted active:bg-raised'
+            }`}
+          >
+            {voice.state === 'recording' ? '■' : '🎤'}
+          </button>
+        )}
+      </div>
       <p className="mt-3 text-center text-[11px] text-faint">
         Lands in the agent's inbox. Works offline — queued captures sync on reconnect.
       </p>
