@@ -83,6 +83,42 @@ describe('mock fixtures honor the API contract', () => {
     for (const group of res.groups) expect(group.results.length).toBeGreaterThan(0)
   })
 
+  it('timeline never exposes the content of sensitive memory facts', async () => {
+    // Sensitive facts are gated behind biometrics on the Memory screen, but
+    // timeline events that reference them (relatedId) are rendered — and
+    // searched — without any confirmation. Such events may name the topic,
+    // never the fact's content: no detail text, no numbers in the title.
+    const memory = await ds.getMemory()
+    const sensitiveIds = new Set(
+      memory.items.filter((m) => m.sensitivity === 'sensitive').map((m) => m.id),
+    )
+
+    const events = []
+    let before: string | undefined
+    for (;;) {
+      const page = await ds.getTimeline(before === undefined ? undefined : { before })
+      events.push(...page.events)
+      if (page.nextBefore === null) break
+      before = page.nextBefore
+    }
+
+    const related = events.filter((e) => e.relatedId !== null && sensitiveIds.has(e.relatedId))
+    expect(related.length).toBeGreaterThan(0) // the rule must actually be exercised
+    for (const event of related) {
+      expect(event.detail).toBeNull()
+      expect(event.title).not.toMatch(/\d/)
+    }
+
+    // And the content must not surface through search snippets either.
+    for (const probe of ['count double', '4 000', '560 km']) {
+      const res = await ds.search(probe)
+      const flat = JSON.stringify(res.groups).toLowerCase()
+      expect(flat).not.toContain('300 pln/month')
+      expect(flat).not.toContain('4 000 usd')
+      expect(flat).not.toContain('560 km')
+    }
+  })
+
   it('search never leaks sensitive memory content', async () => {
     // "refill" appears only inside a sensitive fact (not in any topic) —
     // content of sensitive items must not be searchable at all.
