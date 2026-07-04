@@ -173,10 +173,18 @@ button {
   touch-action: manipulation;
 }
 
-/* Keyboard focus is visible app-wide; pointer taps stay ring-free. */
-:focus-visible {
-  outline: 2px solid var(--hl-accent);
-  outline-offset: 2px;
+/*
+ * Keyboard focus is visible app-wide; pointer taps stay ring-free.
+ * Must live in @layer base: text fields draw their own focus affordance
+ * (focus:border-accent) and opt out via focus-visible:outline-none — an
+ * unlayered rule would beat that utility and stack a second gold line
+ * outside the box, where the sticky header clips its top edge.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--hl-accent);
+    outline-offset: 2px;
+  }
 }
 
 /* Search deep-link target: brief accent ring that fades out. */

@@ -2,8 +2,14 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { App } from '../../App'
+
+// Read the stylesheet source directly: vitest stubs CSS imports (even ?raw),
+// and jsdom does not implement cascade layers, so the layering contract can
+// only be asserted against the source text.
+const globalCss = readFileSync('src/styles/global.css', 'utf8')
 
 /**
  * Capture screen visual-contract test: exactly one focus treatment on the
@@ -36,6 +42,17 @@ describe('CaptureScreen', () => {
     expect(textarea.className).toContain('focus:border-accent')
     expect(textarea.className).toContain('focus-visible:outline-none')
     expect(textarea.className.match(/focus/g)).toHaveLength(2)
+    // No wrapper may add a second border/ring/outline around the textarea.
+    for (let el = textarea.parentElement; el; el = el.parentElement) {
+      expect(el.className).not.toMatch(/(?:^|[\s:])(?:border|ring|outline)(?:-|\b)|focus/)
+    }
+    // The opt-out only wins if the global ring is layered: unlayered CSS beats
+    // @layer utilities regardless of specificity, and text fields match
+    // :focus-visible even on touch — the exact doubled-frame bug on device.
+    const baseLayer = globalCss.match(/@layer base\s*\{[\s\S]*?:focus-visible/)
+    expect(baseLayer).not.toBeNull()
+    const unlayeredRing = globalCss.replace(/@layer base\s*\{[\s\S]*?\n\}/g, '')
+    expect(unlayeredRing).not.toMatch(/^\s*:focus-visible\s*\{/m)
 
     // Disabled send: distinct muted surface, not a translucent accent.
     const send = screen.getByRole('button', { name: 'Send to Hermes' })
