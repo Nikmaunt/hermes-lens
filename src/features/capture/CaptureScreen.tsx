@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useCapture } from '@/hooks/mutations'
@@ -9,9 +10,24 @@ export function CaptureScreen() {
   const [text, setText] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagDraft, setTagDraft] = useState('')
+  const [fromShare, setFromShare] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const capture = useCapture()
   const snackbar = useSnackbar()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // Text arriving from the Android share sheet prefills the note for review —
+  // nothing is sent until the user confirms with the normal Send button.
+  useEffect(() => {
+    const shared = (location.state as { sharedText?: string } | null)?.sharedText
+    if (typeof shared !== 'string' || shared.trim() === '') return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state arrives via router navigation, not render data; must be consumed exactly once
+    setText((prev) => (prev.trim() === '' ? shared : `${prev.trimEnd()}\n${shared}`))
+    setFromShare(true)
+    // Consume the state so back/refresh does not prefill again.
+    void navigate('/capture', { replace: true })
+  }, [location.state, navigate])
 
   const toggleTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
@@ -29,6 +45,7 @@ export function CaptureScreen() {
     // Optimistic: clear instantly, report async result via snackbar.
     setText('')
     setTags([])
+    setFromShare(false)
     textareaRef.current?.focus()
     capture.mutate(
       { text: trimmed, tags },
@@ -44,6 +61,12 @@ export function CaptureScreen() {
 
   return (
     <Screen title="Capture">
+      {fromShare && (
+        <div className="bg-accent-dim text-accent mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
+          <span aria-hidden>⇪</span>
+          <span>Shared text — review, tag and send to Hermes</span>
+        </div>
+      )}
       <textarea
         ref={textareaRef}
         value={text}
