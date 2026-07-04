@@ -82,3 +82,26 @@ export function dueLabel(isoDate: string, now = new Date()): string {
   if (days === -1) return '1d overdue'
   return `${-days}d overdue`
 }
+
+export type DueTone = 'overdue' | 'warn' | 'neutral'
+
+/**
+ * Compact single-line label for the DueBadge pill: "3d late" / "today" /
+ * "tomorrow" / "in 5d". Overdue deliberately uses the short "late" form so
+ * the pill never wraps next to narrow card titles.
+ */
+export function dueBadgeLabel(isoDate: string, now = new Date()): string {
+  const days = daysUntil(isoDate, now)
+  if (days < 0) return `${-days}d late`
+  if (days === 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return `in ${days}d`
+}
+
+/** Default DueBadge tone: muted red once late, gold on the day, quiet otherwise. */
+export function dueToneFor(isoDate: string, now = new Date()): DueTone {
+  const days = daysUntil(isoDate, now)
+  if (days < 0) return 'overdue'
+  if (days === 0) return 'warn'
+  return 'neutral'
+}

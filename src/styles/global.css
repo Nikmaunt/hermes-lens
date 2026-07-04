@@ -18,6 +18,9 @@
   --hl-accent-dim: rgba(227, 180, 88, 0.13);
   --hl-danger: #ed6a5e;
   --hl-danger-dim: rgba(237, 106, 94, 0.14);
+  /* Due badges: desaturated red that sits next to the gold/yellow pills. */
+  --hl-overdue: #cf837a;
+  --hl-overdue-dim: rgba(207, 131, 122, 0.16);
   --hl-ok: #57b47c;
   --hl-ok-dim: rgba(87, 180, 124, 0.14);
   --hl-warn: #e2a33c;
@@ -38,6 +41,8 @@ html.light {
   --hl-accent-dim: rgba(176, 127, 30, 0.12);
   --hl-danger: #cf3f34;
   --hl-danger-dim: rgba(207, 63, 52, 0.1);
+  --hl-overdue: #a85c52;
+  --hl-overdue-dim: rgba(168, 92, 82, 0.12);
   --hl-ok: #2e7d4f;
   --hl-ok-dim: rgba(46, 125, 79, 0.12);
   --hl-warn: #a8690b;
@@ -58,6 +63,8 @@ html.light {
   --color-accent-dim: var(--hl-accent-dim);
   --color-danger: var(--hl-danger);
   --color-danger-dim: var(--hl-danger-dim);
+  --color-overdue: var(--hl-overdue);
+  --color-overdue-dim: var(--hl-overdue-dim);
   --color-ok: var(--hl-ok);
   --color-ok-dim: var(--hl-ok-dim);
   --color-warn: var(--hl-warn);
