@@ -24,16 +24,16 @@ const cache = createEndpointCache(preferencesKV)
 const queue = createMutationQueue(preferencesKV)
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {
-  const { settings } = useSettings()
+  const { settings, apiToken } = useSettings()
   const queryClient = useQueryClient()
   const [pendingCount, setPendingCount] = useState(0)
 
   const ds = useMemo<DataSource>(() => {
     if (settings.source === 'api' && settings.apiBaseUrl !== '') {
-      return new ApiDataSource(settings.apiBaseUrl, settings.apiToken)
+      return new ApiDataSource(settings.apiBaseUrl, apiToken)
     }
     return new MockDataSource(preferencesKV)
-  }, [settings.source, settings.apiBaseUrl, settings.apiToken])
+  }, [settings.source, settings.apiBaseUrl, apiToken])
 
   useEffect(() => {
     void queue.count().then(setPendingCount)

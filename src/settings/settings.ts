@@ -13,8 +13,9 @@ export type SwipeMapping = z.infer<typeof SwipeMapping>
 export const Settings = z.object({
   source: z.enum(['mock', 'api']).catch('mock'),
   apiBaseUrl: z.string().catch(''),
-  /** Static bearer token. Masked in the UI, never logged. */
-  apiToken: z.string().catch(''),
+  // The bearer token deliberately does NOT live here: it is stored in
+  // Keystore-backed secure storage (settings/tokenStore.ts) and any legacy
+  // plaintext copy inside this object is migrated out on startup.
   appLock: z.boolean().catch(false),
   theme: z.enum(['dark', 'light']).catch('dark'),
   swipeMapping: SwipeMapping.catch({

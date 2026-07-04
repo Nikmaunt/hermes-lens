@@ -19,7 +19,7 @@ const DIRECTIONS: { key: keyof SwipeMapping; label: string; arrow: string }[] = 
 ]
 
 export function SettingsScreen() {
-  const { settings, update } = useSettings()
+  const { settings, apiToken, update, updateApiToken } = useSettings()
   const { pendingCount, queue, ds } = useData()
   const { setupPin, pinConfigured } = useAuth()
   const snackbar = useSnackbar()
@@ -89,8 +89,8 @@ export function SettingsScreen() {
               <span className="mb-1 block text-xs font-medium text-muted">Bearer token</span>
               <div className="flex gap-2">
                 <input
-                  value={settings.apiToken}
-                  onChange={(e) => update({ apiToken: e.target.value.trim() })}
+                  value={apiToken}
+                  onChange={(e) => updateApiToken(e.target.value.trim())}
                   type={showToken ? 'text' : 'password'}
                   placeholder="paste the static token"
                   autoCapitalize="none"
@@ -105,7 +105,8 @@ export function SettingsScreen() {
                 </button>
               </div>
               <span className="mt-1 block text-[11px] text-faint">
-                Stored on-device only. Never logged, never leaves the Tailscale network.
+                Stored in Android Keystore-backed encrypted storage, on-device only. Never
+                logged, never leaves the Tailscale network.
               </span>
             </label>
           </>
