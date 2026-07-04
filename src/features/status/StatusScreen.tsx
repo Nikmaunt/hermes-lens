@@ -22,7 +22,7 @@ function uptime(seconds: number): string {
 }
 
 export function StatusScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useStatus()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useStatus()
 
   return (
     <Screen title="Agent Status" back>
@@ -31,7 +31,7 @@ export function StatusScreen() {
         {isLoading && <ListSkeleton rows={5} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable — no status and nothing cached yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

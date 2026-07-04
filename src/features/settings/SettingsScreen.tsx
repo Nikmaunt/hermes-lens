@@ -104,10 +104,16 @@ export function SettingsScreen() {
                 settings.source === source ? 'bg-surface text-ink shadow' : 'text-faint'
               }`}
             >
-              {source === 'mock' ? 'Mock data' : 'Agent API'}
+              {source === 'mock' ? 'Demo mode' : 'Agent API'}
             </button>
           ))}
         </div>
+        {settings.source === 'mock' && (
+          <p className="text-xs text-warn">
+            Demo mode — every screen shows bundled sample data, marked with a DEMO badge.
+            Nothing is real and nothing syncs.
+          </p>
+        )}
         {settings.source === 'api' && (
           <>
             <label className="block">

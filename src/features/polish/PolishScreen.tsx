@@ -30,7 +30,7 @@ const GRADE_BUTTONS: { grade: Grade; label: string; className: string }[] = [
 ]
 
 export function PolishScreen() {
-  const { data, staleSince, isLoading, error, refetch } = usePolishWords()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = usePolishWords()
   const today = toIsoDate(new Date())
 
   const [srs, setSrs] = useState<SrsState | null>(null)
@@ -98,7 +98,7 @@ export function PolishScreen() {
       {isLoading && <ListSkeleton rows={4} />}
       {!isLoading && error !== null && data === undefined && (
         <ErrorState
-          message="Agent unreachable and no cached data yet"
+          kind={errorKind}
           onRetry={() => void refetch()}
         />
       )}

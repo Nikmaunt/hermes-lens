@@ -1,10 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
+import { AuthBanner } from './components/AuthBanner'
 import { BottomNav } from './components/BottomNav'
 import { SnackbarProvider } from './components/SnackbarProvider'
 import { ListSkeleton } from './components/primitives'
 import { DataSourceProvider } from './data/DataSourceProvider'
 import { SettingsProvider, useSettings } from './settings/SettingsProvider'
+import { FirstRunScreen } from './features/onboarding/FirstRunScreen'
 import { LockGate } from './features/lock/LockGate'
 // Core tabs stay in the main chunk for an instant first paint.
 import { TodayScreen } from './features/today/TodayScreen'
@@ -54,14 +56,17 @@ function Shell() {
       <Suspense fallback={<div className="p-4 pt-16"><ListSkeleton rows={4} /></div>}>
         <Outlet />
       </Suspense>
+      <AuthBanner />
       <BottomNav />
     </div>
   )
 }
 
 function Root() {
-  const { ready } = useSettings()
+  const { ready, settings } = useSettings()
   if (!ready) return null // one-frame gate while Preferences load
+  // No data source chosen yet: demo data must never be silently active (F1).
+  if (!settings.configured) return <FirstRunScreen />
   return (
     <DataSourceProvider>
       <LockGate>

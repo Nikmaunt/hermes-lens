@@ -13,6 +13,11 @@ export type SwipeMapping = z.infer<typeof SwipeMapping>
 export const Settings = z.object({
   source: z.enum(['mock', 'api']).catch('mock'),
   apiBaseUrl: z.string().catch(''),
+  /**
+   * True once the user has explicitly chosen Demo mode or connected the
+   * agent in the first-run flow — demo data must never be active silently.
+   */
+  configured: z.boolean().catch(false),
   // The bearer token deliberately does NOT live here: it is stored in
   // Keystore-backed secure storage (settings/tokenStore.ts) and any legacy
   // plaintext copy inside this object is migrated out on startup.
@@ -35,7 +40,14 @@ export async function loadSettings(kv: KV): Promise<Settings> {
   const raw = await kv.get(KEY)
   if (raw === null) return DEFAULT_SETTINGS
   try {
-    return Settings.parse(JSON.parse(raw))
+    const json = JSON.parse(raw) as Record<string, unknown>
+    const parsed = Settings.parse(json)
+    if (!('configured' in json)) {
+      // Install predating the first-run flow: a working API setup keeps
+      // working untouched; mock users must make the demo choice explicitly.
+      return { ...parsed, configured: parsed.source === 'api' && parsed.apiBaseUrl !== '' }
+    }
+    return parsed
   } catch {
     return DEFAULT_SETTINGS
   }

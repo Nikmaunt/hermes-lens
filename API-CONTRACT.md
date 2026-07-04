@@ -17,7 +17,9 @@ data cannot silently drift apart.
 - All responses are `application/json; charset=utf-8`.
 - Timestamps are ISO-8601 **with UTC offset** (e.g. `2026-07-04T09:30:00+02:00`).
   Calendar dates are `YYYY-MM-DD`. Money is integer **cents** + ISO-4217 code.
-- The client times out requests after 10 s and falls back to its offline cache.
+- The client times out requests after 4 s. Reads are stale-while-revalidate:
+  cached data is shown immediately and refreshed in the background, so a slow
+  or dead route degrades to "stale" rather than blocking the UI.
 
 Error shape (any non-2xx): `{ "error": "<human readable message>" }`.
 

@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSettings } from '@/settings/SettingsProvider'
 import { ApiDataSource } from './ApiDataSource'
+import { clearAuthFailure } from './authState'
 import type { DataSource } from './DataSource'
 import { MockDataSource } from './MockDataSource'
 import { createEndpointCache, type EndpointCache } from './cache'
@@ -48,6 +49,12 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     void queue.deadLetters().then((dead) => setDeadLetterCount(dead.length))
     return queue.onDeadLetterChange(setDeadLetterCount)
   }, [])
+
+  // A new source (or an edited token) deserves a clean slate for the
+  // auth-failure banner — the next request re-reports if still rejected.
+  useEffect(() => {
+    clearAuthFailure()
+  }, [ds])
 
   // Drain the offline queue whenever the app returns to the foreground,
   // then refetch so optimistic state converges with the source of truth.

@@ -20,9 +20,15 @@ import {
   type TriageRequest,
 } from '@/schemas'
 import type { DataSource, TimelineParams } from './DataSource'
+import { clearAuthFailure, reportAuthFailure } from './authState'
 import { recordValidationIssues } from './debugLog'
 
-const REQUEST_TIMEOUT_MS = 10_000
+/**
+ * Short on purpose (F2): a dead Tailscale route fails fast and the UI falls
+ * back to the offline cache instead of hanging. Inside the tailnet a healthy
+ * agent answers in well under a second.
+ */
+const REQUEST_TIMEOUT_MS = 4_000
 
 /**
  * What went wrong, for UI decisions (F4):
@@ -85,9 +91,13 @@ export class ApiDataSource implements DataSource {
       clearTimeout(timer)
     }
     if (!res.ok) {
-      const kind = res.status === 401 || res.status === 403 ? 'auth' : 'server'
-      throw new ApiError(`Agent returned ${res.status}`, kind, res.status)
+      if (res.status === 401 || res.status === 403) {
+        reportAuthFailure()
+        throw new ApiError(`Agent returned ${res.status}`, 'auth', res.status)
+      }
+      throw new ApiError(`Agent returned ${res.status}`, 'server', res.status)
     }
+    clearAuthFailure()
     const json: unknown = await res.json()
     const parsed = schema.safeParse(json)
     if (!parsed.success) {

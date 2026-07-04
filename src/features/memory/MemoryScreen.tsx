@@ -29,7 +29,7 @@ const CATEGORY_LABELS: Record<MemoryCategory, string> = {
 }
 
 export function MemoryScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useMemoryItems()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useMemoryItems()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
 
@@ -84,7 +84,7 @@ export function MemoryScreen() {
         {isLoading && <ListSkeleton rows={6} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

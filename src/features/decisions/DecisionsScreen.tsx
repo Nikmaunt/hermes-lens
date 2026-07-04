@@ -17,7 +17,7 @@ import type { Decision } from '@/schemas'
 export function DecisionsScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
   const projectFilter = searchParams.get('project')
-  const { data, staleSince, isLoading, error, refetch } = useDecisions()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useDecisions()
   const projects = useProjects()
 
   const projectName = (id: string | null): string | null =>
@@ -51,7 +51,7 @@ export function DecisionsScreen() {
         {isLoading && <ListSkeleton rows={4} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

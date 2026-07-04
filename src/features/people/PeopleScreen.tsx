@@ -12,7 +12,7 @@ import { usePeople } from '@/hooks/queries'
 import { formatDate, relativeTime } from '@/lib/dates'
 
 export function PeopleScreen() {
-  const { data, staleSince, isLoading, error, refetch } = usePeople()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = usePeople()
 
   return (
     <Screen title="People" back>
@@ -21,7 +21,7 @@ export function PeopleScreen() {
         {isLoading && <ListSkeleton rows={4} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

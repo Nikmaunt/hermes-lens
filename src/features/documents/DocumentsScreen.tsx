@@ -29,7 +29,7 @@ function nextDate(doc: DocumentItem): string | null {
 }
 
 export function DocumentsScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useDocuments()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useDocuments()
 
   const sorted = useMemo(() => {
     const items = [...(data?.items ?? [])]
@@ -50,7 +50,7 @@ export function DocumentsScreen() {
         {isLoading && <ListSkeleton rows={5} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

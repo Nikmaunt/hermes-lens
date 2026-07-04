@@ -85,7 +85,7 @@ function buildNodes(items: MemoryItem[]): Node[] {
 }
 
 export function MemoryMapScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useMemoryItems()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useMemoryItems()
   const navigate = useNavigate()
 
   const nodes = useMemo(() => buildNodes(data?.items ?? []), [data])
@@ -148,7 +148,7 @@ export function MemoryMapScreen() {
       {isLoading && <ListSkeleton rows={4} />}
       {!isLoading && error !== null && data === undefined && (
         <ErrorState
-          message="Agent unreachable and no cached data yet"
+          kind={errorKind}
           onRetry={() => void refetch()}
         />
       )}

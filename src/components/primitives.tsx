@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router'
 import { relativeTime } from '@/lib/dates'
+import type { QueryErrorKind } from '@/hooks/useCachedQuery'
 
 export function Card({
   children,
@@ -78,19 +80,76 @@ export function EmptyState({ icon, title, hint }: { icon: string; title: string;
   )
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+/** Per-error-kind copy so the user can tell VPN-off from bad-token (F1/F4). */
+const errorCopy: Record<QueryErrorKind, { icon: string; title: string; hint: string }> = {
+  timeout: {
+    icon: '⏱',
+    title: 'Agent not answering',
+    hint: 'The Tailscale route looks down — check that the VPN is on and the host is awake.',
+  },
+  network: {
+    icon: '📡',
+    title: "Can't reach the agent",
+    hint: 'No route to the agent. Check connectivity and the base URL in Settings.',
+  },
+  auth: {
+    icon: '🔑',
+    title: 'Agent rejected the token',
+    hint: 'The bearer token is wrong or was revoked. Update it in Settings.',
+  },
+  server: {
+    icon: '⚠️',
+    title: 'Agent error',
+    hint: 'The agent answered with an error. Check its logs on the VPS.',
+  },
+  invalid: {
+    icon: '🧩',
+    title: 'Unexpected response',
+    hint: 'The payload failed validation — details under Settings → Debug.',
+  },
+  unknown: {
+    icon: '📡',
+    title: 'Something went wrong',
+    hint: 'Unexpected failure while loading.',
+  },
+}
+
+export function ErrorState({
+  message,
+  kind,
+  onRetry,
+}: {
+  message?: string
+  kind?: QueryErrorKind | null
+  onRetry?: () => void
+}) {
+  const navigate = useNavigate()
+  const copy = kind != null ? errorCopy[kind] : null
   return (
     <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <div className="text-3xl opacity-60">📡</div>
-      <div className="text-sm font-medium text-muted">{message}</div>
-      {onRetry && (
-        <button
-          onClick={onRetry}
-          className="rounded-full bg-raised px-4 py-1.5 text-sm font-medium text-ink active:opacity-70"
-        >
-          Try again
-        </button>
-      )}
+      <div className="text-3xl opacity-60">{copy?.icon ?? '📡'}</div>
+      <div className="text-sm font-medium text-muted">
+        {copy?.title ?? message ?? 'Agent unreachable and no cached data yet'}
+      </div>
+      {copy !== null && <div className="max-w-64 text-xs text-faint">{copy.hint}</div>}
+      <div className="flex gap-2">
+        {onRetry && (
+          <button
+            onClick={onRetry}
+            className="rounded-full bg-raised px-4 py-1.5 text-sm font-medium text-ink active:opacity-70"
+          >
+            Try again
+          </button>
+        )}
+        {(kind === 'auth' || kind === 'network' || kind === 'invalid') && (
+          <button
+            onClick={() => void navigate('/settings')}
+            className="bg-accent-dim text-accent rounded-full px-4 py-1.5 text-sm font-medium active:opacity-70"
+          >
+            Open Settings
+          </button>
+        )}
+      </div>
     </div>
   )
 }

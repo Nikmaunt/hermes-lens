@@ -21,7 +21,7 @@ function groupByDay(events: TimelineEvent[]): [string, TimelineEvent[]][] {
 
 export function TimelineScreen() {
   const [category, setCategory] = useState<EventCategory | undefined>(undefined)
-  const { data, staleSince, isLoading, error, refetch } = useTimeline(category)
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useTimeline(category)
   const { ds } = useData()
   const [older, setOlder] = useState<TimelineEvent[]>([])
   const [olderCursor, setOlderCursor] = useState<string | null>(null)
@@ -75,7 +75,7 @@ export function TimelineScreen() {
         {isLoading && <ListSkeleton rows={6} />}
         {!isLoading && error !== null && events.length === 0 && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

@@ -15,7 +15,7 @@ import { bestStreak, completionRate, currentStreak } from '@/lib/streaks'
 const WEEKS_SHOWN = 12
 
 export function HabitsScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useHabits()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useHabits()
   const today = toIsoDate(new Date())
 
   return (
@@ -25,7 +25,7 @@ export function HabitsScreen() {
         {isLoading && <ListSkeleton rows={4} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

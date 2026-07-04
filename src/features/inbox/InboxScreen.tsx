@@ -29,7 +29,7 @@ const DESTINATION_META: Record<TriageDestination, { label: string; icon: string 
 type Direction = keyof SwipeMapping
 
 export function InboxScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useInbox()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useInbox()
   const { settings } = useSettings()
   const triage = useTriage()
   const snackbar = useSnackbar()
@@ -100,7 +100,7 @@ export function InboxScreen() {
       {isLoading && <ListSkeleton rows={3} />}
       {!isLoading && error !== null && data === undefined && (
         <ErrorState
-          message="Agent unreachable and no cached data yet"
+          kind={errorKind}
           onRetry={() => void refetch()}
         />
       )}

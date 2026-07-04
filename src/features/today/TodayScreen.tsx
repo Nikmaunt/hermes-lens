@@ -22,7 +22,7 @@ const urgencyTone: Record<FollowUp['urgency'], 'danger' | 'warn' | 'neutral'> = 
 }
 
 export function TodayScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useToday()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useToday()
   const navigate = useNavigate()
 
   // Keep the home-screen widget in sync with what the user sees.
@@ -37,7 +37,7 @@ export function TodayScreen() {
         {isLoading && <ListSkeleton rows={5} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}

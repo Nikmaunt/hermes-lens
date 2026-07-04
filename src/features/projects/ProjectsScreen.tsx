@@ -20,7 +20,7 @@ const statusTone: Record<Project['status'], 'ok' | 'neutral' | 'accent'> = {
 }
 
 export function ProjectsScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useProjects()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useProjects()
   const navigate = useNavigate()
 
   return (
@@ -30,7 +30,7 @@ export function ProjectsScreen() {
         {isLoading && <ListSkeleton rows={4} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
