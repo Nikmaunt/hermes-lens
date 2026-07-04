@@ -58,3 +58,8 @@ export function useInbox() {
   const { ds } = useData()
   return useCachedQuery('inbox', () => ds.getInbox())
 }
+
+export function useReminders() {
+  const { ds } = useData()
+  return useCachedQuery('reminders', () => ds.getReminders())
+}

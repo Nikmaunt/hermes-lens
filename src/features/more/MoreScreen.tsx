@@ -33,9 +33,9 @@ export function MoreScreen() {
           >
             <div className="text-xl">{item.icon}</div>
             <div className="mt-2 text-sm font-semibold">{item.label}</div>
-            <div className="mt-0.5 text-[11px] text-faint">{item.hint}</div>
+            <div className="mt-0.5 text-caption text-faint">{item.hint}</div>
             {item.to === '/inbox' && inboxCount > 0 && (
-              <span className="bg-accent text-accent-ink tnum absolute top-3 right-3 rounded-full px-1.5 py-0.5 text-[10px] font-bold">
+              <span className="bg-accent text-accent-ink tnum absolute top-3 right-3 rounded-full px-1.5 py-0.5 text-micro font-bold">
                 {inboxCount}
               </span>
             )}

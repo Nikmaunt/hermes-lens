@@ -21,7 +21,7 @@ export function BottomNav() {
             to={tab.to}
             end={tab.to === '/'}
             className={({ isActive }) =>
-              `flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${
+              `flex flex-1 flex-col items-center justify-center gap-0.5 text-micro font-medium transition-colors ${
                 isActive ? 'text-accent' : 'text-faint'
               }`
             }
@@ -32,7 +32,7 @@ export function BottomNav() {
               </span>
             ) : (
               <>
-                <span className="text-[17px] leading-none">{tab.icon}</span>
+                <span className="text-title-lg leading-none">{tab.icon}</span>
                 <span>{tab.label}</span>
               </>
             )}

@@ -69,7 +69,56 @@ html.light {
 
   --radius-card: 1.05rem;
 
+  /*
+   * Named type scale — the only text sizes the app uses. Utilities:
+   * text-micro … text-headline (Tailwind generates them from these vars).
+   */
+  --text-micro: 10px;
+  --text-micro--line-height: 1.4;
+  --text-caption: 11px;
+  --text-caption--line-height: 1.4;
+  --text-label: 12px;
+  --text-label--line-height: 1.4;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 1.45;
+  --text-body: 15px;
+  --text-body--line-height: 1.45;
+  --text-title: 16px;
+  --text-title--line-height: 1.4;
+  --text-title-lg: 17px;
+  --text-title-lg--line-height: 1.35;
+  --text-headline: 19px;
+  --text-headline--line-height: 1.3;
+
+  /* M3 motion tokens: entrances/expansions decelerate with emphasis. */
+  --ease-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+
   --animate-fade-up: fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-expand: expand 0.18s var(--ease-emphasized-decelerate) both;
+  --animate-flip-in: flip-in 0.18s var(--ease-emphasized-decelerate) both;
+
+  @keyframes expand {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes flip-in {
+    from {
+      opacity: 0;
+      transform: rotateX(28deg) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: rotateX(0) scale(1);
+    }
+  }
 
   @keyframes fade-up {
     from {
@@ -115,4 +164,18 @@ body {
 
 button {
   touch-action: manipulation;
+}
+
+/* Keyboard focus is visible app-wide; pointer taps stay ring-free. */
+:focus-visible {
+  outline: 2px solid var(--hl-accent);
+  outline-offset: 2px;
+}
+
+/* Search deep-link target: brief accent ring that fades out. */
+.highlight-flash {
+  outline: 2px solid var(--hl-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-card);
+  transition: outline-color 0.4s var(--ease-emphasized-accelerate) 1.4s;
 }

@@ -77,6 +77,38 @@ describe('mock fixtures honor the API contract', () => {
     )
   })
 
+  it('parses the reminders feed with a revision and future due dates', async () => {
+    const reminders = await ds.getReminders()
+    expect(reminders.revision.length).toBeGreaterThan(0)
+    expect(reminders.items.length).toBeGreaterThanOrEqual(3)
+    expect(reminders.items.some((r) => r.critical)).toBe(true)
+    for (const item of reminders.items) {
+      expect(new Date(item.dueAt).getTime()).toBeGreaterThan(Date.now())
+    }
+  })
+
+  it('deduplicates captures replayed with the same clientId (F6)', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const before = (await fresh.getInbox()).items.length
+
+    const first = await fresh.capture({ text: 'offline note', tags: [], clientId: 'cli-1' })
+    const replay = await fresh.capture({ text: 'offline note', tags: [], clientId: 'cli-1' })
+
+    expect(replay).toEqual(first) // same response, no second item
+    expect((await fresh.getInbox()).items.length).toBe(before + 1)
+
+    // Distinct clientIds (and captures without one) still create items.
+    await fresh.capture({ text: 'other note', tags: [], clientId: 'cli-2' })
+    await fresh.capture({ text: 'anonymous note', tags: [] })
+    expect((await fresh.getInbox()).items.length).toBe(before + 3)
+  })
+
+  it('acknowledges reminder syncs idempotently', async () => {
+    const req = { syncedAt: '2026-07-04T12:00:00+02:00', lastSeenRevision: 'rev-2b7f31' }
+    expect(await ds.ackSync(req)).toEqual({ status: 'ok' })
+    expect(await ds.ackSync(req)).toEqual({ status: 'ok' }) // replay is safe
+  })
+
   it('search finds items across collections and groups them', async () => {
     const res = await ds.search('spanish')
     expect(res.groups.length).toBeGreaterThan(1)

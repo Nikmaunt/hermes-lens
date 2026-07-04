@@ -5,48 +5,56 @@ import {
   Card,
   EmptyState,
   ErrorState,
-  ListSkeleton,
+  PeopleSkeleton,
   StaleBanner,
 } from '@/components/primitives'
 import { usePeople } from '@/hooks/queries'
+import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDate, relativeTime } from '@/lib/dates'
 
 export function PeopleScreen() {
-  const { data, staleSince, isLoading, error, refetch } = usePeople()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = usePeople()
+
+  useHighlightScroll(data !== undefined)
 
   return (
     <Screen title="People" back>
       <PullToRefresh onRefresh={refetch}>
         <StaleBanner since={staleSince} />
-        {isLoading && <ListSkeleton rows={4} />}
+        {isLoading && <PeopleSkeleton rows={3} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
         {data !== undefined && data.people.length === 0 && (
-          <EmptyState icon="👥" title="Nobody here yet" />
+          <EmptyState
+            icon="👥"
+            title="Nobody here yet"
+            hint="Person cards grow out of your conversations and notes as the agent meets people with you."
+          />
         )}
         <div className="space-y-3">
           {data?.people.map((person) => (
-            <Card key={person.id}>
+            <div key={person.id} data-item-id={person.id}>
+            <Card>
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-[16px] font-semibold tracking-tight">{person.name}</div>
-                  <div className="mt-0.5 text-[12px] text-faint">{person.relation}</div>
+                  <div className="text-title font-semibold tracking-tight">{person.name}</div>
+                  <div className="mt-0.5 text-label text-faint">{person.relation}</div>
                 </div>
                 <Badge tone="neutral">🗣 {person.preferredLanguage}</Badge>
               </div>
-              <p className="mt-2 text-[13px] leading-snug text-muted">{person.context}</p>
+              <p className="mt-2 text-body-sm leading-snug text-muted">{person.context}</p>
 
               {person.agreements.length > 0 && (
                 <div className="mt-3 space-y-1.5">
-                  <div className="text-[10px] font-semibold tracking-wide text-faint uppercase">
+                  <div className="text-micro font-semibold tracking-wide text-faint uppercase">
                     agreements
                   </div>
                   {person.agreements.map((agreement) => (
-                    <div key={agreement.id} className="flex items-start gap-2 text-[13px]">
+                    <div key={agreement.id} className="flex items-start gap-2 text-body-sm">
                       <span
                         className={agreement.status === 'done' ? 'text-ok' : 'text-warn'}
                         aria-hidden
@@ -60,7 +68,7 @@ export function PeopleScreen() {
                       >
                         {agreement.text}
                       </span>
-                      <span className="tnum text-[11px] whitespace-nowrap text-faint">
+                      <span className="tnum text-caption whitespace-nowrap text-faint">
                         {formatDate(agreement.madeOn)}
                       </span>
                     </div>
@@ -70,16 +78,17 @@ export function PeopleScreen() {
 
               {person.lastInteraction !== null && (
                 <div className="mt-3 border-t border-line pt-2.5">
-                  <div className="text-[11px] text-faint">
+                  <div className="text-caption text-faint">
                     last contact · {person.lastInteraction.channel} ·{' '}
                     {relativeTime(person.lastInteraction.at)}
                   </div>
-                  <div className="mt-1 text-[13px] leading-snug text-muted">
+                  <div className="mt-1 text-body-sm leading-snug text-muted">
                     {person.lastInteraction.summary}
                   </div>
                 </div>
               )}
             </Card>
+            </div>
           ))}
         </div>
       </PullToRefresh>

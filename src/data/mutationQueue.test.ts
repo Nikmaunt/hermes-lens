@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { ApiError } from './ApiDataSource'
 import type { DataSource } from './DataSource'
 import { MemoryKV } from './kv'
 import { createMutationQueue, type QueuedMutation } from './mutationQueue'
@@ -124,6 +125,101 @@ describe('mutation queue', () => {
     // Item 2 was never sent, so it must still be queued.
     expect(await queue.count()).toBe(1)
     expect((await queue.peek())[0]?.id).toBe('q2')
+  })
+
+  it('moves permanently rejected items to the dead-letter list and keeps draining (F5 wedge)', async () => {
+    // Reproduces the wedge: a single 400 at the head of the queue used to
+    // block every mutation behind it forever, because drain() treated all
+    // failures as "still offline".
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+    await queue.enqueue(captureItem(2))
+    await queue.enqueue(captureItem(3))
+
+    let call = 0
+    const ds = fakeDataSource(() => {
+      call++
+      return call === 1
+        ? Promise.reject(new ApiError('Agent returned 400', 'server', 400))
+        : Promise.resolve({})
+    })
+
+    expect(await queue.drain(ds)).toBe(2) // q2 and q3 must flush past the poisoned q1
+    expect(await queue.count()).toBe(0)
+
+    const dead = await queue.deadLetters()
+    expect(dead.map((d) => d.item.id)).toEqual(['q1'])
+    expect(dead[0]?.status).toBe(400)
+  })
+
+  it('treats 408 and 429 as transient, preserving order', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+    await queue.enqueue(captureItem(2))
+
+    let call = 0
+    const ds = fakeDataSource(() => {
+      call++
+      return call === 1
+        ? Promise.reject(new ApiError('Agent returned 429', 'server', 429))
+        : Promise.resolve({})
+    })
+
+    expect(await queue.drain(ds)).toBe(0) // transient head blocks the rest — order preserved
+    expect(await queue.count()).toBe(2)
+    expect(await queue.deadLetters()).toEqual([])
+    expect((await queue.peek())[0]?.id).toBe('q1')
+  })
+
+  it('keeps network failures and 5xx out of the dead-letter list', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+    const ds = fakeDataSource(() => Promise.reject(new ApiError('Agent returned 503', 'server', 503)))
+    expect(await queue.drain(ds)).toBe(0)
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+  })
+
+  it('retryDeadLetter moves the item back into the live queue', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+    const rejecting = fakeDataSource(() =>
+      Promise.reject(new ApiError('Agent returned 422', 'server', 422)),
+    )
+    await queue.drain(rejecting)
+    expect(await queue.count()).toBe(0)
+    expect((await queue.deadLetters()).length).toBe(1)
+
+    await queue.retryDeadLetter('q1')
+    expect(await queue.deadLetters()).toEqual([])
+    expect(await queue.count()).toBe(1)
+
+    const accepting = fakeDataSource(() => Promise.resolve({}))
+    expect(await queue.drain(accepting)).toBe(1)
+    expect(await queue.count()).toBe(0)
+  })
+
+  it('discardDeadLetter drops the item for good', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+    await queue.drain(
+      fakeDataSource(() => Promise.reject(new ApiError('Agent returned 400', 'server', 400))),
+    )
+    await queue.discardDeadLetter('q1')
+    expect(await queue.deadLetters()).toEqual([])
+    expect(await queue.count()).toBe(0)
+  })
+
+  it('notifies dead-letter listeners', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    const counts: number[] = []
+    queue.onDeadLetterChange((c) => counts.push(c))
+    await queue.enqueue(captureItem(1))
+    await queue.drain(
+      fakeDataSource(() => Promise.reject(new ApiError('Agent returned 400', 'server', 400))),
+    )
+    await queue.discardDeadLetter('q1')
+    expect(counts).toEqual([1, 0])
   })
 
   it('notifies count listeners', async () => {

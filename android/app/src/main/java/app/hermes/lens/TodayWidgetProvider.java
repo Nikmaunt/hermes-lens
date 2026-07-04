@@ -54,9 +54,15 @@ public class TodayWidgetProvider extends AppWidgetProvider {
         if (raw != null) {
             try {
                 JSONObject json = new JSONObject(raw);
-                counts = json.optInt("followUps", 0) + " follow-ups · "
-                        + json.optInt("inbox", 0) + " inbox";
-                deadline = json.optString("deadline", "");
+                if (json.optBoolean("masked", false)) {
+                    // "Hide widget details when locked" is on: no counts, no titles.
+                    counts = "Hermes Lens";
+                    deadline = "Unlock the app for details";
+                } else {
+                    counts = json.optInt("followUps", 0) + " follow-ups · "
+                            + json.optInt("inbox", 0) + " inbox";
+                    deadline = json.optString("deadline", "");
+                }
                 updated = json.optString("updatedAt", "");
             } catch (JSONException ignored) {
                 // Corrupt summary: keep the fallback text.

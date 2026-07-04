@@ -85,7 +85,7 @@ function buildNodes(items: MemoryItem[]): Node[] {
 }
 
 export function MemoryMapScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useMemoryItems()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useMemoryItems()
   const navigate = useNavigate()
 
   const nodes = useMemo(() => buildNodes(data?.items ?? []), [data])
@@ -135,8 +135,8 @@ export function MemoryMapScreen() {
     setView((v) => ({ ...v, scale: Math.min(3, Math.max(0.5, v.scale * (e.deltaY < 0 ? 1.15 : 0.87))) }))
   }
 
-  const openNode = (node: Node) => {
-    if (moved.current) return // it was a pan, not a tap
+  const openNode = (node: Node, viaKeyboard = false) => {
+    if (moved.current && !viaKeyboard) return // it was a pan, not a tap
     const params = new URLSearchParams({ category: node.category })
     if (node.topic !== undefined) params.set('topic', node.topic)
     void navigate(`/memory?${params.toString()}`)
@@ -148,7 +148,7 @@ export function MemoryMapScreen() {
       {isLoading && <ListSkeleton rows={4} />}
       {!isLoading && error !== null && data === undefined && (
         <ErrorState
-          message="Agent unreachable and no cached data yet"
+          kind={errorKind}
           onRetry={() => void refetch()}
         />
       )}
@@ -157,7 +157,7 @@ export function MemoryMapScreen() {
       )}
       {nodes.length > 0 && (
         <>
-          <div className="mb-2 px-1 text-[11px] text-faint">
+          <div className="mb-2 px-1 text-caption text-faint">
             drag to pan · pinch to zoom · tap a node to open that slice
           </div>
           <div className="border-line bg-surface overflow-hidden rounded-(--radius-card) border">
@@ -218,7 +218,22 @@ export function MemoryMapScreen() {
                 </text>
 
                 {nodes.map((node) => (
-                  <g key={node.id} onClick={() => openNode(node)} className="cursor-pointer">
+                  <g
+                    key={node.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${node.kind === 'hub' ? 'Category' : 'Topic'}: ${node.label}, ${node.count} ${node.count === 1 ? 'fact' : 'facts'}${node.sensitive ? ', contains sensitive items' : ''}`}
+                    onClick={() => openNode(node)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        openNode(node, true)
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    {/* Invisible hit area: small topic dots stay comfortably tappable. */}
+                    <circle cx={node.x} cy={node.y} r={Math.max(node.r, 24)} fill="transparent" />
                     <circle
                       cx={node.x}
                       cy={node.y}

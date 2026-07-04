@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
-import { EmptyState, ErrorState, ListSkeleton, StaleBanner } from '@/components/primitives'
+import { FilterChip } from '@/components/FilterChip'
+import { EmptyState, ErrorState, FeedSkeleton, StaleBanner } from '@/components/primitives'
 import { useData } from '@/data/DataSourceProvider'
 import { useTimeline } from '@/hooks/queries'
+import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDay, formatTime, toIsoDate } from '@/lib/dates'
 import { EventCategory, type TimelineEvent } from '@/schemas'
 import { CATEGORY_META } from '@/lib/categoryMeta'
@@ -21,7 +23,7 @@ function groupByDay(events: TimelineEvent[]): [string, TimelineEvent[]][] {
 
 export function TimelineScreen() {
   const [category, setCategory] = useState<EventCategory | undefined>(undefined)
-  const { data, staleSince, isLoading, error, refetch } = useTimeline(category)
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useTimeline(category)
   const { ds } = useData()
   const [older, setOlder] = useState<TimelineEvent[]>([])
   const [olderCursor, setOlderCursor] = useState<string | null>(null)
@@ -37,6 +39,8 @@ export function TimelineScreen() {
   }
 
   const events = useMemo(() => [...(data?.events ?? []), ...older], [data, older])
+
+  useHighlightScroll(events.length > 0)
   const cursor = olderCursor ?? data?.nextBefore ?? null
 
   const loadMore = async () => {
@@ -72,10 +76,10 @@ export function TimelineScreen() {
         }}
       >
         <StaleBanner since={staleSince} />
-        {isLoading && <ListSkeleton rows={6} />}
+        {isLoading && <FeedSkeleton rows={6} />}
         {!isLoading && error !== null && events.length === 0 && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
@@ -84,24 +88,24 @@ export function TimelineScreen() {
         )}
         {groupByDay(events).map(([day, dayEvents]) => (
           <section key={day}>
-            <h2 className="bg-bg/85 sticky top-[58px] z-10 -mx-4 mb-1 px-5 pt-3 pb-1 text-[12px] font-semibold tracking-wide text-faint backdrop-blur-md">
+            <h2 className="bg-bg/85 sticky top-[58px] z-10 -mx-4 mb-1 px-5 pt-3 pb-1 text-label font-semibold tracking-wide text-faint backdrop-blur-md">
               {formatDay(day)}
             </h2>
             <div>
               {dayEvents.map((event) => (
-                <div key={event.id} className="flex gap-3 border-b border-line py-3 last:border-0">
+                <div key={event.id} data-item-id={event.id} className="flex gap-3 border-b border-line py-3 last:border-0">
                   <span className="pt-0.5 text-sm" aria-hidden>
                     {CATEGORY_META[event.category].icon}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm leading-snug font-medium">{event.title}</div>
                     {event.detail !== null && (
-                      <div className="mt-0.5 text-[13px] leading-snug text-muted">
+                      <div className="mt-0.5 text-body-sm leading-snug text-muted">
                         {event.detail}
                       </div>
                     )}
                   </div>
-                  <span className="tnum pt-0.5 text-[11px] text-faint">{formatTime(event.at)}</span>
+                  <span className="tnum pt-0.5 text-caption text-faint">{formatTime(event.at)}</span>
                 </div>
               ))}
             </div>
@@ -121,23 +125,3 @@ export function TimelineScreen() {
   )
 }
 
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-        active ? 'bg-accent text-accent-ink' : 'bg-surface border border-line text-muted'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}

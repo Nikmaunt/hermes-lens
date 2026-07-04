@@ -11,6 +11,27 @@
     <title>Hermes Lens</title>
   </head>
   <body>
+    <!-- Mirrors the native splash so the frames between the Android splash
+         screen and React's first paint are branded, never blank. Removed by
+         Root once settings are loaded and the app renders. -->
+    <div
+      id="splash"
+      style="
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b0d12;
+        color: #e3b458;
+        font-size: 40px;
+        transition: opacity 0.25s ease-out;
+        pointer-events: none;
+      "
+    >
+      ◈
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

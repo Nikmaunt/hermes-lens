@@ -62,7 +62,7 @@ export function SearchScreen() {
         placeholder="Search memory, people, notes, decisions…"
         autoFocus
         type="search"
-        className="w-full rounded-(--radius-card) border border-line bg-surface px-4 py-3 text-[15px] outline-none placeholder:text-faint focus:border-accent"
+        className="w-full rounded-(--radius-card) border border-line bg-surface px-4 py-3 text-body outline-none placeholder:text-faint focus:border-accent"
       />
 
       <div className="mt-4">
@@ -84,7 +84,7 @@ export function SearchScreen() {
           result !== null &&
           result.groups.map((group) => (
             <section key={group.kind} className="mb-5">
-              <h2 className="mb-2 px-1 text-[12px] font-semibold tracking-[0.08em] text-faint uppercase">
+              <h2 className="mb-2 px-1 text-label font-semibold tracking-[0.08em] text-faint uppercase">
                 {KIND_LABELS[group.kind].icon} {KIND_LABELS[group.kind].label}
                 <span className="tnum ml-1.5 text-faint/70">{group.results.length}</span>
               </h2>
@@ -92,15 +92,21 @@ export function SearchScreen() {
                 {group.results.map((r) => (
                   <Card
                     key={r.id}
-                    onClick={() => void navigate(KIND_LABELS[group.kind].route)}
+                    onClick={() =>
+                      // Deep link: the target screen scrolls to and flashes
+                      // the item via its data-item-id (useHighlightScroll).
+                      void navigate(KIND_LABELS[group.kind].route, {
+                        state: { highlightId: r.id },
+                      })
+                    }
                   >
                     <div className="text-sm leading-snug font-medium">{r.title}</div>
                     {r.sensitive ? (
-                      <div className="mt-1 text-[12px] leading-snug text-faint italic">
+                      <div className="mt-1 text-label leading-snug text-faint italic">
                         🔒 Sensitive — unlock in Memory
                       </div>
                     ) : (
-                      <div className="mt-1 line-clamp-2 text-[12px] leading-snug text-muted">
+                      <div className="mt-1 line-clamp-2 text-label leading-snug text-muted">
                         {r.snippet}
                       </div>
                     )}

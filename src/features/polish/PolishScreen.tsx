@@ -30,7 +30,7 @@ const GRADE_BUTTONS: { grade: Grade; label: string; className: string }[] = [
 ]
 
 export function PolishScreen() {
-  const { data, staleSince, isLoading, error, refetch } = usePolishWords()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = usePolishWords()
   const today = toIsoDate(new Date())
 
   const [srs, setSrs] = useState<SrsState | null>(null)
@@ -98,7 +98,7 @@ export function PolishScreen() {
       {isLoading && <ListSkeleton rows={4} />}
       {!isLoading && error !== null && data === undefined && (
         <ErrorState
-          message="Agent unreachable and no cached data yet"
+          kind={errorKind}
           onRetry={() => void refetch()}
         />
       )}
@@ -111,7 +111,7 @@ export function PolishScreen() {
             <button
               onClick={startSession}
               disabled={dueWords.length === 0}
-              className="bg-accent text-accent-ink mt-4 w-full rounded-(--radius-card) py-3 text-[15px] font-semibold active:opacity-80 disabled:opacity-30"
+              className="bg-accent text-accent-ink mt-4 w-full rounded-(--radius-card) py-3 text-body font-semibold active:opacity-80 disabled:opacity-30"
             >
               {dueWords.length === 0 ? 'All caught up ✓' : 'Start review'}
             </button>
@@ -150,7 +150,7 @@ export function PolishScreen() {
 
       {current !== undefined && (
         <>
-          <div className="mb-2 flex items-center justify-between px-1 text-[11px] text-faint">
+          <div className="mb-2 flex items-center justify-between px-1 text-caption text-faint">
             <span className="tnum">{session?.length} left</span>
             <button onClick={() => setSession(null)} className="active:opacity-70">
               end session
@@ -162,14 +162,14 @@ export function PolishScreen() {
           >
             <div className="text-3xl font-semibold tracking-tight">{current.word}</div>
             {flipped ? (
-              <>
+              <div className="animate-flip-in">
                 <div className="text-accent mt-4 text-lg">{current.translation}</div>
                 {current.example !== null && (
                   <div className="mt-3 text-sm leading-relaxed text-muted italic">
                     {current.example}
                   </div>
                 )}
-              </>
+              </div>
             ) : (
               <div className="mt-4 text-xs text-faint">tap to reveal</div>
             )}

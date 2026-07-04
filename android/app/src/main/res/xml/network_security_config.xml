@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  targetSdk 36 blocks cleartext HTTP by default, which would break the only
+  network call this app makes: the agent API on a Tailscale host. Inside the
+  tailnet every packet is already WireGuard-encrypted by Tailscale, so plain
+  http:// to the agent never crosses an untrusted network in the clear.
+
+  Cleartext is therefore allowed ONLY for tailnet hostnames:
+    - MagicDNS full names (*.ts.net)
+    - the short MagicDNS device name of the agent host ("hermes-vps")
+  Android's network security config has no CIDR support, so the Tailscale
+  CGNAT range (100.64.0.0/10) cannot be whitelisted as a range — if the base
+  URL is a raw 100.x.y.z address, use the MagicDNS hostname instead (or
+  serve HTTPS). Every other host stays cleartext-blocked.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ts.net</domain>
+        <domain includeSubdomains="false">hermes-vps</domain>
+    </domain-config>
+</network-security-config>

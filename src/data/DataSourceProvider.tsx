@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSettings } from '@/settings/SettingsProvider'
 import { ApiDataSource } from './ApiDataSource'
+import { clearAuthFailure } from './authState'
 import type { DataSource } from './DataSource'
 import { MockDataSource } from './MockDataSource'
 import { createEndpointCache, type EndpointCache } from './cache'
@@ -16,6 +17,8 @@ interface DataContextValue {
   queue: MutationQueue
   /** Number of offline-queued mutations, live. */
   pendingCount: number
+  /** Number of permanently rejected mutations awaiting a user decision, live. */
+  deadLetterCount: number
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -24,21 +27,34 @@ const cache = createEndpointCache(preferencesKV)
 const queue = createMutationQueue(preferencesKV)
 
 export function DataSourceProvider({ children }: { children: ReactNode }) {
-  const { settings } = useSettings()
+  const { settings, apiToken } = useSettings()
   const queryClient = useQueryClient()
   const [pendingCount, setPendingCount] = useState(0)
 
   const ds = useMemo<DataSource>(() => {
     if (settings.source === 'api' && settings.apiBaseUrl !== '') {
-      return new ApiDataSource(settings.apiBaseUrl, settings.apiToken)
+      return new ApiDataSource(settings.apiBaseUrl, apiToken)
     }
     return new MockDataSource(preferencesKV)
-  }, [settings.source, settings.apiBaseUrl, settings.apiToken])
+  }, [settings.source, settings.apiBaseUrl, apiToken])
+
+  const [deadLetterCount, setDeadLetterCount] = useState(0)
 
   useEffect(() => {
     void queue.count().then(setPendingCount)
     return queue.onCountChange(setPendingCount)
   }, [])
+
+  useEffect(() => {
+    void queue.deadLetters().then((dead) => setDeadLetterCount(dead.length))
+    return queue.onDeadLetterChange(setDeadLetterCount)
+  }, [])
+
+  // A new source (or an edited token) deserves a clean slate for the
+  // auth-failure banner — the next request re-reports if still rejected.
+  useEffect(() => {
+    clearAuthFailure()
+  }, [ds])
 
   // Drain the offline queue whenever the app returns to the foreground,
   // then refetch so optimistic state converges with the source of truth.
@@ -59,8 +75,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
   }, [ds, queryClient])
 
   const value = useMemo(
-    () => ({ ds, cache, queue, pendingCount }),
-    [ds, pendingCount],
+    () => ({ ds, cache, queue, pendingCount, deadLetterCount }),
+    [ds, pendingCount, deadLetterCount],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

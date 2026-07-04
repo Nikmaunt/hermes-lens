@@ -13,10 +13,22 @@ export type SwipeMapping = z.infer<typeof SwipeMapping>
 export const Settings = z.object({
   source: z.enum(['mock', 'api']).catch('mock'),
   apiBaseUrl: z.string().catch(''),
-  /** Static bearer token. Masked in the UI, never logged. */
-  apiToken: z.string().catch(''),
+  /**
+   * True once the user has explicitly chosen Demo mode or connected the
+   * agent in the first-run flow — demo data must never be active silently.
+   */
+  configured: z.boolean().catch(false),
+  // The bearer token deliberately does NOT live here: it is stored in
+  // Keystore-backed secure storage (settings/tokenStore.ts) and any legacy
+  // plaintext copy inside this object is migrated out on startup.
   appLock: z.boolean().catch(false),
   theme: z.enum(['dark', 'light']).catch('dark'),
+  /** Mirror agent reminders into the device calendar (foreground-only). */
+  calendarSyncEnabled: z.boolean().catch(false),
+  /** Target calendar id; '' = the on-device local "Hermes" calendar. */
+  calendarTargetId: z.string().catch(''),
+  /** Blank out counts/deadline in the home-screen widget while app-lock is on. */
+  widgetHideDetails: z.boolean().catch(false),
   swipeMapping: SwipeMapping.catch({
     right: 'note',
     left: 'archive',
@@ -34,7 +46,14 @@ export async function loadSettings(kv: KV): Promise<Settings> {
   const raw = await kv.get(KEY)
   if (raw === null) return DEFAULT_SETTINGS
   try {
-    return Settings.parse(JSON.parse(raw))
+    const json = JSON.parse(raw) as Record<string, unknown>
+    const parsed = Settings.parse(json)
+    if (!('configured' in json)) {
+      // Install predating the first-run flow: a working API setup keeps
+      // working untouched; mock users must make the demo choice explicitly.
+      return { ...parsed, configured: parsed.source === 'api' && parsed.apiBaseUrl !== '' }
+    }
+    return parsed
   } catch {
     return DEFAULT_SETTINGS
   }

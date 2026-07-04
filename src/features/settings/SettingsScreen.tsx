@@ -1,15 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { Screen } from '@/components/Screen'
-import { Card, SectionHeader } from '@/components/primitives'
+import { Card, ConfirmDialog, SectionHeader } from '@/components/primitives'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useData } from '@/data/DataSourceProvider'
+import { getValidationLog, onValidationLogChange, type ValidationLogEntry } from '@/data/debugLog'
 import { preferencesKV } from '@/data/kv'
+import type { DeadLetter, QueuedMutation } from '@/data/mutationQueue'
+import { relativeTime } from '@/lib/dates'
 import { clearPin } from '@/lib/pin'
 import { TriageDestination } from '@/schemas'
 import { useSettings } from '@/settings/SettingsProvider'
 import type { SwipeMapping } from '@/settings/settings'
 import { biometryAvailable } from '../lock/biometric'
 import { useAuth } from '../lock/LockGate'
+import { CalendarBridge, type DeviceCalendar } from '../reminders/calendarBridge'
+
+/** One-line human description of a queued mutation for the dead-letter list. */
+function describeMutation(item: QueuedMutation): string {
+  if (item.kind === 'capture') {
+    const text = item.req.text.length > 60 ? `${item.req.text.slice(0, 60)}…` : item.req.text
+    return `Capture: “${text}”`
+  }
+  if (item.kind === 'triage') return `Triage ${item.itemId} → ${item.req.destination}`
+  if (item.kind === 'flag') return `Flag ${item.itemId}: ${item.req.action}`
+  return `Calendar sync ack (${item.req.lastSeenRevision})`
+}
 
 const DIRECTIONS: { key: keyof SwipeMapping; label: string; arrow: string }[] = [
   { key: 'right', label: 'Swipe right', arrow: '→' },
@@ -19,11 +35,81 @@ const DIRECTIONS: { key: keyof SwipeMapping; label: string; arrow: string }[] = 
 ]
 
 export function SettingsScreen() {
-  const { settings, update } = useSettings()
+  const { settings, apiToken, update, updateApiToken } = useSettings()
   const { pendingCount, queue, ds } = useData()
   const { setupPin, pinConfigured } = useAuth()
   const snackbar = useSnackbar()
   const [showToken, setShowToken] = useState(false)
+  const [confirm, setConfirm] = useState<
+    { kind: 'remove-pin' } | { kind: 'discard-dead-letter'; id: string } | null
+  >(null)
+  const [deadLetters, setDeadLetters] = useState<DeadLetter[]>([])
+  const [validationLog, setValidationLog] = useState<readonly ValidationLogEntry[]>(
+    getValidationLog(),
+  )
+
+  useEffect(() => {
+    const refresh = () => void queue.deadLetters().then(setDeadLetters)
+    refresh()
+    return queue.onDeadLetterChange(refresh)
+  }, [queue])
+
+  useEffect(() => onValidationLogChange(() => setValidationLog([...getValidationLog()])), [])
+
+  const [calendarExplainer, setCalendarExplainer] = useState(false)
+  const [deviceCalendars, setDeviceCalendars] = useState<DeviceCalendar[]>([])
+
+  useEffect(() => {
+    if (!settings.calendarSyncEnabled || !Capacitor.isNativePlatform()) return
+    void CalendarBridge.listCalendars()
+      .then(({ calendars }) => setDeviceCalendars(calendars))
+      .catch(() => setDeviceCalendars([]))
+  }, [settings.calendarSyncEnabled])
+
+  const toggleCalendarSync = (enabled: boolean) => {
+    if (!enabled) {
+      update({ calendarSyncEnabled: false })
+      return
+    }
+    if (!Capacitor.isNativePlatform()) {
+      snackbar.show({ message: 'Calendar sync works on the phone build' })
+      return
+    }
+    // Designed pre-permission explainer before the system dialog.
+    setCalendarExplainer(true)
+  }
+
+  const confirmCalendarSync = async () => {
+    setCalendarExplainer(false)
+    try {
+      const perm = await CalendarBridge.requestPermissions()
+      if (perm.calendar !== 'granted') {
+        snackbar.show({ message: 'Calendar permission was declined — sync stays off' })
+        return
+      }
+      update({ calendarSyncEnabled: true })
+      snackbar.show({ message: 'Reminders will appear in your calendar on the next refresh' })
+    } catch {
+      snackbar.show({ message: 'Calendar access unavailable on this device' })
+    }
+  }
+
+  const retryDeadLetter = async (id: string) => {
+    await queue.retryDeadLetter(id)
+    const flushed = await queue.drain(ds)
+    snackbar.show({
+      message: flushed > 0 ? 'Sent ✓' : 'Requeued — still failing, kept in the queue',
+    })
+  }
+
+  const discardDeadLetter = async (id: string) => {
+    await queue.discardDeadLetter(id)
+    snackbar.show({ message: 'Action discarded' })
+  }
+
+  const removePin = () => {
+    void clearPin(preferencesKV).then(() => window.location.reload())
+  }
 
   const toggleLock = async (enabled: boolean) => {
     if (!enabled) {
@@ -66,10 +152,16 @@ export function SettingsScreen() {
                 settings.source === source ? 'bg-surface text-ink shadow' : 'text-faint'
               }`}
             >
-              {source === 'mock' ? 'Mock data' : 'Agent API'}
+              {source === 'mock' ? 'Demo mode' : 'Agent API'}
             </button>
           ))}
         </div>
+        {settings.source === 'mock' && (
+          <p className="text-xs text-warn">
+            Demo mode — every screen shows bundled sample data, marked with a DEMO badge.
+            Nothing is real and nothing syncs.
+          </p>
+        )}
         {settings.source === 'api' && (
           <>
             <label className="block">
@@ -89,8 +181,8 @@ export function SettingsScreen() {
               <span className="mb-1 block text-xs font-medium text-muted">Bearer token</span>
               <div className="flex gap-2">
                 <input
-                  value={settings.apiToken}
-                  onChange={(e) => update({ apiToken: e.target.value.trim() })}
+                  value={apiToken}
+                  onChange={(e) => updateApiToken(e.target.value.trim())}
                   type={showToken ? 'text' : 'password'}
                   placeholder="paste the static token"
                   autoCapitalize="none"
@@ -104,8 +196,9 @@ export function SettingsScreen() {
                   {showToken ? 'hide' : 'show'}
                 </button>
               </div>
-              <span className="mt-1 block text-[11px] text-faint">
-                Stored on-device only. Never logged, never leaves the Tailscale network.
+              <span className="mt-1 block text-caption text-faint">
+                Stored in Android Keystore-backed encrypted storage, on-device only. Never
+                logged, never leaves the Tailscale network.
               </span>
             </label>
           </>
@@ -121,7 +214,7 @@ export function SettingsScreen() {
                 ? 'All actions synced'
                 : `${pendingCount} action${pendingCount === 1 ? '' : 's'} pending`}
             </div>
-            <div className="mt-0.5 text-[11px] text-faint">
+            <div className="mt-0.5 text-caption text-faint">
               captures, triage and flag requests made while offline
             </div>
           </div>
@@ -136,6 +229,69 @@ export function SettingsScreen() {
         </div>
       </Card>
 
+      <SectionHeader>Calendar</SectionHeader>
+      <Card className="p-0">
+        <ToggleRow
+          label="Sync reminders to calendar"
+          hint="agent deadlines appear as events, refreshed while the app is open"
+          checked={settings.calendarSyncEnabled}
+          onChange={toggleCalendarSync}
+        />
+        {settings.calendarSyncEnabled && (
+          <div className="border-t border-line px-4 py-3.5">
+            <span className="mb-1 block text-xs font-medium text-muted">Target calendar</span>
+            <select
+              value={settings.calendarTargetId}
+              onChange={(e) => update({ calendarTargetId: e.target.value })}
+              className="w-full rounded-lg border border-line bg-raised px-2 py-2 text-sm outline-none"
+            >
+              <option value="">Hermes — stays on this device</option>
+              {deviceCalendars
+                .filter((cal) => !(cal.isLocal && cal.name === 'Hermes'))
+                .map((cal) => (
+                  <option key={cal.id} value={cal.id}>
+                    {cal.name} ({cal.account})
+                  </option>
+                ))}
+            </select>
+            <p className="mt-2 text-caption text-faint">
+              Account calendars (Google, Samsung…) upload event titles to that provider's
+              cloud. The local Hermes calendar never leaves the phone.
+            </p>
+          </div>
+        )}
+      </Card>
+
+      {deadLetters.length > 0 && (
+        <>
+          <SectionHeader>Failed actions</SectionHeader>
+          <Card className="divide-y divide-line p-0">
+            {deadLetters.map((dead) => (
+              <div key={dead.item.id} className="px-4 py-3">
+                <div className="text-sm">{describeMutation(dead.item)}</div>
+                <div className="mt-0.5 text-caption text-faint">
+                  {dead.reason} · {relativeTime(dead.failedAt)}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => void retryDeadLetter(dead.item.id)}
+                    className="bg-accent-dim text-accent rounded-full px-3 py-1.5 text-xs font-semibold active:opacity-70"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    onClick={() => setConfirm({ kind: 'discard-dead-letter', id: dead.item.id })}
+                    className="text-danger rounded-full border border-line px-3 py-1.5 text-xs font-medium active:bg-raised"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
+
       <SectionHeader>Security</SectionHeader>
       <Card className="divide-y divide-line p-0">
         <ToggleRow
@@ -147,7 +303,7 @@ export function SettingsScreen() {
         <div className="flex items-center justify-between px-4 py-3.5">
           <div>
             <div className="text-sm font-medium">PIN</div>
-            <div className="mt-0.5 text-[11px] text-faint">
+            <div className="mt-0.5 text-caption text-faint">
               {pinConfigured ? 'configured' : 'not set'}
             </div>
           </div>
@@ -160,9 +316,7 @@ export function SettingsScreen() {
             </button>
             {pinConfigured && !settings.appLock && (
               <button
-                onClick={() => {
-                  void clearPin(preferencesKV).then(() => window.location.reload())
-                }}
+                onClick={() => setConfirm({ kind: 'remove-pin' })}
                 className="text-danger rounded-full border border-line px-3 py-1.5 text-xs font-medium active:bg-raised"
               >
                 Remove
@@ -170,6 +324,12 @@ export function SettingsScreen() {
             )}
           </div>
         </div>
+        <ToggleRow
+          label="Hide widget details when locked"
+          hint="home-screen widget shows no counts or deadlines while app lock is on"
+          checked={settings.widgetHideDetails}
+          onChange={(v) => update({ widgetHideDetails: v })}
+        />
       </Card>
 
       <SectionHeader>Appearance</SectionHeader>
@@ -212,9 +372,87 @@ export function SettingsScreen() {
         ))}
       </Card>
 
-      <p className="mt-8 text-center text-[11px] text-faint">
+      {validationLog.length > 0 && (
+        <>
+          <SectionHeader>Debug — invalid payloads</SectionHeader>
+          <Card className="divide-y divide-line p-0">
+            {validationLog.map((entry, i) => (
+              <div key={`${entry.at}-${i}`} className="px-4 py-3">
+                <div className="font-mono text-xs">{entry.path}</div>
+                <div className="mt-0.5 text-caption text-faint">{relativeTime(entry.at)}</div>
+                <ul className="mt-1 space-y-0.5">
+                  {entry.issues.slice(0, 5).map((issue, j) => (
+                    <li key={j} className="font-mono text-caption text-warn">
+                      {issue}
+                    </li>
+                  ))}
+                  {entry.issues.length > 5 && (
+                    <li className="text-caption text-faint">+{entry.issues.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            ))}
+          </Card>
+          <p className="mt-2 px-1 text-caption text-faint">
+            The agent answered, but the payload didn't match the contract. In-memory only,
+            cleared on restart.
+          </p>
+        </>
+      )}
+
+      <p className="mt-8 text-center text-caption text-faint">
         Hermes Lens · private build · no telemetry, ever
       </p>
+
+      {confirm !== null && (
+        <ConfirmDialog
+          title={confirm.kind === 'remove-pin' ? 'Remove the PIN?' : 'Discard this action?'}
+          body={
+            confirm.kind === 'remove-pin'
+              ? 'Sensitive memory and app lock will have no PIN fallback until you set a new one.'
+              : 'The action was rejected by the agent and will be dropped for good — it never reached the server.'
+          }
+          confirmLabel={confirm.kind === 'remove-pin' ? 'Remove PIN' : 'Discard'}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            if (confirm.kind === 'remove-pin') removePin()
+            else void discardDeadLetter(confirm.id)
+            setConfirm(null)
+          }}
+        />
+      )}
+
+      {calendarExplainer && (
+        <div className="bg-bg/95 fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 backdrop-blur-sm">
+          <div className="text-3xl">🗓</div>
+          <div className="max-w-72 space-y-3 text-center">
+            <h2 className="text-lg font-semibold">Reminders in your calendar</h2>
+            <p className="text-sm text-muted">
+              Hermes mirrors the agent's dated commitments into a calendar so they show up
+              next to everything else — by default a local “Hermes” calendar that stays on
+              this device.
+            </p>
+            <p className="text-xs text-faint">
+              Android will now ask for calendar access. Hermes only touches events it created
+              and only while the app is open — no background work, ever.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={() => void confirmCalendarSync()}
+              className="bg-accent text-accent-ink rounded-full px-8 py-3 text-sm font-semibold active:opacity-80"
+            >
+              Continue
+            </button>
+            <button
+              onClick={() => setCalendarExplainer(false)}
+              className="text-sm text-faint active:opacity-70"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
     </Screen>
   )
 }
@@ -234,7 +472,7 @@ function ToggleRow({
     <div className="flex items-center justify-between px-4 py-3.5">
       <div>
         <div className="text-sm font-medium">{label}</div>
-        <div className="mt-0.5 text-[11px] text-faint">{hint}</div>
+        <div className="mt-0.5 text-caption text-faint">{hint}</div>
       </div>
       <button
         role="switch"

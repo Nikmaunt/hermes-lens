@@ -10,6 +10,7 @@ import {
   StaleBanner,
 } from '@/components/primitives'
 import { useProjects } from '@/hooks/queries'
+import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDate, relativeTime } from '@/lib/dates'
 import type { Project } from '@/schemas'
 
@@ -20,8 +21,10 @@ const statusTone: Record<Project['status'], 'ok' | 'neutral' | 'accent'> = {
 }
 
 export function ProjectsScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useProjects()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useProjects()
   const navigate = useNavigate()
+
+  useHighlightScroll(data !== undefined)
 
   return (
     <Screen title="Projects" back>
@@ -30,7 +33,7 @@ export function ProjectsScreen() {
         {isLoading && <ListSkeleton rows={4} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
@@ -39,26 +42,27 @@ export function ProjectsScreen() {
         )}
         <div className="space-y-3">
           {data?.projects.map((project) => (
-            <Card key={project.id}>
+            <div key={project.id} data-item-id={project.id}>
+            <Card>
               <div className="flex items-start justify-between gap-3">
-                <div className="text-[16px] font-semibold tracking-tight">{project.name}</div>
+                <div className="text-title font-semibold tracking-tight">{project.name}</div>
                 <Badge tone={statusTone[project.status]}>{project.status}</Badge>
               </div>
-              <p className="mt-1.5 text-[13px] leading-snug text-muted">{project.summary}</p>
+              <p className="mt-1.5 text-body-sm leading-snug text-muted">{project.summary}</p>
 
               {project.nextAction !== null && (
                 <div className="bg-accent-dim mt-3 rounded-lg px-3 py-2">
-                  <div className="text-accent text-[10px] font-semibold tracking-wide uppercase">
+                  <div className="text-accent text-micro font-semibold tracking-wide uppercase">
                     next action
                   </div>
-                  <div className="mt-0.5 text-[13px] leading-snug">{project.nextAction}</div>
+                  <div className="mt-0.5 text-body-sm leading-snug">{project.nextAction}</div>
                 </div>
               )}
 
               {project.keyDates.length > 0 && (
                 <div className="mt-3 space-y-1">
                   {project.keyDates.map((kd) => (
-                    <div key={kd.label} className="flex justify-between text-[12px]">
+                    <div key={kd.label} className="flex justify-between text-label">
                       <span className="text-faint">{kd.label}</span>
                       <span className="tnum text-muted">{formatDate(kd.date)}</span>
                     </div>
@@ -71,7 +75,7 @@ export function ProjectsScreen() {
                   {project.linkedNotes.map((note) => (
                     <span
                       key={note.id}
-                      className="rounded-full border border-line px-2.5 py-1 text-[11px] text-muted"
+                      className="rounded-full border border-line px-2.5 py-1 text-caption text-muted"
                       title={`updated ${relativeTime(note.updatedAt)}`}
                     >
                       🗒 {note.title}
@@ -81,7 +85,7 @@ export function ProjectsScreen() {
               )}
 
               <div className="mt-3 flex items-center justify-between border-t border-line pt-2.5">
-                <span className="text-[11px] text-faint">
+                <span className="text-caption text-faint">
                   updated {relativeTime(project.updatedAt)}
                 </span>
                 <button
@@ -92,6 +96,7 @@ export function ProjectsScreen() {
                 </button>
               </div>
             </Card>
+            </div>
           ))}
         </div>
       </PullToRefresh>

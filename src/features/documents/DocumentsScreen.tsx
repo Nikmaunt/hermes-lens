@@ -11,6 +11,7 @@ import {
   StaleBanner,
 } from '@/components/primitives'
 import { useDocuments } from '@/hooks/queries'
+import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { daysUntil, dueLabel, formatDate } from '@/lib/dates'
 import { formatMoney } from '@/lib/fmt'
 import type { DocumentItem } from '@/schemas'
@@ -29,7 +30,9 @@ function nextDate(doc: DocumentItem): string | null {
 }
 
 export function DocumentsScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useDocuments()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useDocuments()
+
+  useHighlightScroll(data !== undefined)
 
   const sorted = useMemo(() => {
     const items = [...(data?.items ?? [])]
@@ -50,14 +53,14 @@ export function DocumentsScreen() {
         {isLoading && <ListSkeleton rows={5} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
         {data !== undefined && (
           <>
             <Card className="bg-raised">
-              <div className="text-[10px] font-semibold tracking-wide text-faint uppercase">
+              <div className="text-micro font-semibold tracking-wide text-faint uppercase">
                 recurring spend / month
               </div>
               <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -78,7 +81,8 @@ export function DocumentsScreen() {
                   daysUntil(doc.cancelBy) >= 0 &&
                   daysUntil(doc.cancelBy) <= 14
                 return (
-                  <Card key={doc.id} className={cancelSoon ? 'border-danger/40' : ''}>
+                  <div key={doc.id} data-item-id={doc.id}>
+                  <Card className={cancelSoon ? 'border-danger/40' : ''}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-sm leading-snug font-medium">
@@ -87,7 +91,7 @@ export function DocumentsScreen() {
                           </span>
                           {doc.title}
                         </div>
-                        <div className="mt-0.5 text-[11px] text-faint">{doc.provider}</div>
+                        <div className="mt-0.5 text-caption text-faint">{doc.provider}</div>
                       </div>
                       {doc.amount !== null && (
                         <div className="text-right">
@@ -95,7 +99,7 @@ export function DocumentsScreen() {
                             {formatMoney(doc.amount)}
                           </div>
                           {doc.billingPeriod !== null && (
-                            <div className="text-[10px] text-faint">/{doc.billingPeriod === 'monthly' ? 'mo' : 'yr'}</div>
+                            <div className="text-micro text-faint">/{doc.billingPeriod === 'monthly' ? 'mo' : 'yr'}</div>
                           )}
                         </div>
                       )}
@@ -116,9 +120,10 @@ export function DocumentsScreen() {
                     </div>
 
                     {doc.notes !== null && (
-                      <p className="mt-2 text-[12px] leading-snug text-faint">{doc.notes}</p>
+                      <p className="mt-2 text-label leading-snug text-faint">{doc.notes}</p>
                     )}
                   </Card>
+                  </div>
                 )
               })}
             </div>

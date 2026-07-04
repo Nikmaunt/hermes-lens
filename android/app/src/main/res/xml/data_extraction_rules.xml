@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ backup/transfer rules. Everything is excluded: SharedPreferences
+  ("CapacitorStorage") holds the agent bearer token migration remnants, the PIN
+  credential and the offline memory cache — none of it may leave the device via
+  cloud backup or device-to-device transfer. allowBackup="false" already opts
+  out of cloud backup; these rules additionally cover D2D migration, which some
+  OEM transfer tools run regardless of allowBackup. Keep in sync with
+  res/xml/backup_rules.xml (Android 11 and below).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

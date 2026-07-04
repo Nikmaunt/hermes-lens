@@ -1,10 +1,15 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Outlet, Route, Routes } from 'react-router'
+import { lazy, Suspense, useEffect } from 'react'
+import { BrowserRouter, Outlet, Route, Routes, useNavigate } from 'react-router'
+import { Capacitor } from '@capacitor/core'
+import { AuthBanner } from './components/AuthBanner'
 import { BottomNav } from './components/BottomNav'
 import { SnackbarProvider } from './components/SnackbarProvider'
 import { ListSkeleton } from './components/primitives'
 import { DataSourceProvider } from './data/DataSourceProvider'
 import { SettingsProvider, useSettings } from './settings/SettingsProvider'
+import { onSharedText } from './features/capture/shareTarget'
+import { CalendarSyncDriver } from './features/reminders/CalendarSyncDriver'
+import { FirstRunScreen } from './features/onboarding/FirstRunScreen'
 import { LockGate } from './features/lock/LockGate'
 // Core tabs stay in the main chunk for an instant first paint.
 import { TodayScreen } from './features/today/TodayScreen'
@@ -49,19 +54,47 @@ const SettingsScreen = lazy(() =>
 )
 
 function Shell() {
+  const navigate = useNavigate()
+  const { settings } = useSettings()
+
+  // Android share sheet → Capture screen, prefilled for review.
+  useEffect(
+    () =>
+      onSharedText((text) => {
+        void navigate('/capture', { state: { sharedText: text } })
+      }),
+    [navigate],
+  )
+
   return (
     <div className="min-h-full pb-20">
       <Suspense fallback={<div className="p-4 pt-16"><ListSkeleton rows={4} /></div>}>
         <Outlet />
       </Suspense>
+      {settings.calendarSyncEnabled && Capacitor.isNativePlatform() && <CalendarSyncDriver />}
+      <AuthBanner />
       <BottomNav />
     </div>
   )
 }
 
 function Root() {
-  const { ready } = useSettings()
-  if (!ready) return null // one-frame gate while Preferences load
+  const { ready, settings } = useSettings()
+
+  // Fade out the branded HTML splash (index.html) once real UI can paint —
+  // the gap between the native splash and first React render is never blank.
+  useEffect(() => {
+    if (!ready) return
+    const splash = document.getElementById('splash')
+    if (splash === null) return
+    splash.style.opacity = '0'
+    const timer = setTimeout(() => splash.remove(), 300)
+    return () => clearTimeout(timer)
+  }, [ready])
+
+  if (!ready) return null // splash stays visible while Preferences load
+  // No data source chosen yet: demo data must never be silently active (F1).
+  if (!settings.configured) return <FirstRunScreen />
   return (
     <DataSourceProvider>
       <LockGate>

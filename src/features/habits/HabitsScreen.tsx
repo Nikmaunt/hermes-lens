@@ -5,7 +5,7 @@ import {
   Card,
   EmptyState,
   ErrorState,
-  ListSkeleton,
+  HabitsSkeleton,
   StaleBanner,
 } from '@/components/primitives'
 import { useHabits } from '@/hooks/queries'
@@ -15,22 +15,26 @@ import { bestStreak, completionRate, currentStreak } from '@/lib/streaks'
 const WEEKS_SHOWN = 12
 
 export function HabitsScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useHabits()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useHabits()
   const today = toIsoDate(new Date())
 
   return (
     <Screen title="Habits" back>
       <PullToRefresh onRefresh={refetch}>
         <StaleBanner since={staleSince} />
-        {isLoading && <ListSkeleton rows={4} />}
+        {isLoading && <HabitsSkeleton rows={3} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
         {data !== undefined && data.habits.length === 0 && (
-          <EmptyState icon="🔥" title="No habits tracked" hint="The agent logs these from your routines." />
+          <EmptyState
+            icon="🔥"
+            title="No habits tracked yet"
+            hint="The agent starts a card for every routine it sees you repeat — nothing to set up here."
+          />
         )}
         <div className="space-y-3">
           {data?.habits.map((habit) => {
@@ -46,7 +50,7 @@ export function HabitsScreen() {
                     </span>
                     <div>
                       <div className="text-sm font-semibold">{habit.name}</div>
-                      <div className="tnum mt-0.5 text-[11px] text-faint">
+                      <div className="tnum mt-0.5 text-caption text-faint">
                         best {best}d · {Math.round(rate * 100)}% since start
                       </div>
                     </div>
@@ -58,7 +62,7 @@ export function HabitsScreen() {
                         🔥
                       </span>
                     </div>
-                    <div className="text-[10px] text-faint">day streak</div>
+                    <div className="text-micro text-faint">day streak</div>
                   </div>
                 </div>
                 <HeatGrid completedDates={habit.completedDates} today={today} />

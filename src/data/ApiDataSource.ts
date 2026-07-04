@@ -11,21 +11,42 @@ import {
   PeopleResponse,
   PolishWordsResponse,
   ProjectsResponse,
+  RemindersResponse,
   SearchResponse,
+  SyncAckResponse,
   TimelineResponse,
   TodaySummary,
   TriageResponse,
   type CaptureRequest,
   type FlagRequest,
+  type SyncAckRequest,
   type TriageRequest,
 } from '@/schemas'
 import type { DataSource, TimelineParams } from './DataSource'
+import { clearAuthFailure, reportAuthFailure } from './authState'
+import { recordValidationIssues } from './debugLog'
 
-const REQUEST_TIMEOUT_MS = 10_000
+/**
+ * Short on purpose (F2): a dead Tailscale route fails fast and the UI falls
+ * back to the offline cache instead of hanging. Inside the tailnet a healthy
+ * agent answers in well under a second.
+ */
+const REQUEST_TIMEOUT_MS = 4_000
+
+/**
+ * What went wrong, for UI decisions (F4):
+ * - timeout  — the agent host did not answer in time (VPN off, host asleep)
+ * - network  — request never completed (offline, DNS, connection refused)
+ * - auth     — the agent answered 401/403: the token is wrong or revoked
+ * - server   — the agent answered with any other non-2xx status
+ * - invalid  — the payload arrived but failed schema validation
+ */
+export type ApiErrorKind = 'timeout' | 'network' | 'auth' | 'server' | 'invalid'
 
 export class ApiError extends Error {
   constructor(
     message: string,
+    readonly kind: ApiErrorKind = 'network',
     readonly status: number | null = null,
   ) {
     super(message)
@@ -49,7 +70,11 @@ export class ApiDataSource implements DataSource {
   private async request<T>(schema: ZodType<T>, path: string, body?: unknown): Promise<T> {
     const url = this.baseUrl.replace(/\/+$/, '') + path
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, REQUEST_TIMEOUT_MS)
     let res: Response
     try {
       res = await fetch(url, {
@@ -62,14 +87,29 @@ export class ApiDataSource implements DataSource {
         signal: controller.signal,
       })
     } catch {
-      throw new ApiError('Agent unreachable')
+      throw timedOut
+        ? new ApiError('Agent timed out', 'timeout')
+        : new ApiError('Agent unreachable', 'network')
     } finally {
       clearTimeout(timer)
     }
-    if (!res.ok) throw new ApiError(`Agent returned ${res.status}`, res.status)
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        reportAuthFailure()
+        throw new ApiError(`Agent returned ${res.status}`, 'auth', res.status)
+      }
+      throw new ApiError(`Agent returned ${res.status}`, 'server', res.status)
+    }
+    clearAuthFailure()
     const json: unknown = await res.json()
     const parsed = schema.safeParse(json)
-    if (!parsed.success) throw new ApiError(`Invalid payload from ${path}`)
+    if (!parsed.success) {
+      recordValidationIssues(
+        path,
+        parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+      )
+      throw new ApiError(`Invalid payload from ${path}`, 'invalid')
+    }
     return parsed.data
   }
 
@@ -122,6 +162,10 @@ export class ApiDataSource implements DataSource {
     return this.request(InboxResponse, '/api/inbox')
   }
 
+  getReminders(): Promise<RemindersResponse> {
+    return this.request(RemindersResponse, '/api/reminders')
+  }
+
   search(query: string): Promise<SearchResponse> {
     return this.request(SearchResponse, `/api/search?q=${encodeURIComponent(query)}`)
   }
@@ -136,5 +180,9 @@ export class ApiDataSource implements DataSource {
 
   flagMemory(itemId: string, req: FlagRequest): Promise<FlagResponse> {
     return this.request(FlagResponse, `/api/memory/${encodeURIComponent(itemId)}/flag`, req)
+  }
+
+  ackSync(req: SyncAckRequest): Promise<SyncAckResponse> {
+    return this.request(SyncAckResponse, '/api/sync/ack', req)
   }
 }

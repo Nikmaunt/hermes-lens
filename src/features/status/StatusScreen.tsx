@@ -22,7 +22,7 @@ function uptime(seconds: number): string {
 }
 
 export function StatusScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useStatus()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useStatus()
 
   return (
     <Screen title="Agent Status" back>
@@ -31,7 +31,7 @@ export function StatusScreen() {
         {isLoading && <ListSkeleton rows={5} />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable — no status and nothing cached yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
@@ -41,7 +41,7 @@ export function StatusScreen() {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm font-semibold">Telegram gateway</div>
-                  <div className="mt-0.5 text-[11px] text-faint">
+                  <div className="mt-0.5 text-caption text-faint">
                     heartbeat {relativeTime(data.gateway.lastHeartbeat)}
                   </div>
                 </div>
@@ -57,7 +57,7 @@ export function StatusScreen() {
                 <div key={job.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">{job.name}</div>
-                    <div className="mt-0.5 text-[11px] text-faint">
+                    <div className="mt-0.5 text-caption text-faint">
                       {job.schedule} · ran {relativeTime(job.lastRun)}
                     </div>
                   </div>
@@ -80,7 +80,7 @@ export function StatusScreen() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">{relativeTime(data.lastBackup.at)}</div>
-                    <div className="mt-0.5 truncate text-[11px] text-faint">
+                    <div className="mt-0.5 truncate text-caption text-faint">
                       {data.lastBackup.target}
                     </div>
                   </div>
@@ -118,13 +118,13 @@ export function StatusScreen() {
                   <div className="tnum text-2xl font-semibold tracking-tight">
                     ${data.tokenSpend.todayUsd.toFixed(2)}
                   </div>
-                  <div className="text-[11px] text-faint">today</div>
+                  <div className="text-caption text-faint">today</div>
                 </div>
                 <div className="text-right">
                   <div className="tnum text-lg font-medium text-muted">
                     ${data.tokenSpend.monthUsd.toFixed(2)}
                   </div>
-                  <div className="text-[11px] text-faint">this month</div>
+                  <div className="text-caption text-faint">this month</div>
                 </div>
               </div>
             </Card>

@@ -5,12 +5,14 @@ import { Screen } from '@/components/Screen'
 import {
   Badge,
   Card,
+  EmptyState,
   ErrorState,
-  ListSkeleton,
   SectionHeader,
   StaleBanner,
+  TodaySkeleton,
 } from '@/components/primitives'
 import { useToday } from '@/hooks/queries'
+import { useSettings } from '@/settings/SettingsProvider'
 import { dueLabel, formatDay, formatTime } from '@/lib/dates'
 import type { FollowUp } from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
@@ -22,25 +24,38 @@ const urgencyTone: Record<FollowUp['urgency'], 'danger' | 'warn' | 'neutral'> = 
 }
 
 export function TodayScreen() {
-  const { data, staleSince, isLoading, error, refetch } = useToday()
+  const { data, staleSince, errorKind, isLoading, error, refetch } = useToday()
+  const { settings } = useSettings()
   const navigate = useNavigate()
+  const maskWidget = settings.appLock && settings.widgetHideDetails
 
   // Keep the home-screen widget in sync with what the user sees.
   useEffect(() => {
-    if (data !== undefined) void updateTodayWidget(data)
-  }, [data])
+    if (data !== undefined) void updateTodayWidget(data, maskWidget)
+  }, [data, maskWidget])
 
   return (
     <Screen title={data !== undefined ? formatDay(data.date) : 'Today'}>
       <PullToRefresh onRefresh={refetch}>
         <StaleBanner since={staleSince} />
-        {isLoading && <ListSkeleton rows={5} />}
+        {isLoading && <TodaySkeleton />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState
-            message="Agent unreachable and no cached data yet"
+            kind={errorKind}
             onRetry={() => void refetch()}
           />
         )}
+        {data !== undefined &&
+          data.inboxCount === 0 &&
+          data.followUps.length === 0 &&
+          data.deadlines.length === 0 &&
+          data.agentActivity.length === 0 && (
+            <EmptyState
+              icon="☀"
+              title="All clear"
+              hint="No follow-ups, no deadlines, an empty inbox and a quiet agent. Enjoy it."
+            />
+          )}
         {data !== undefined && (
           <>
             {data.inboxCount > 0 && (
@@ -67,7 +82,7 @@ export function TodayScreen() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-sm leading-snug font-medium">{fu.title}</div>
-                      <div className="mt-1 truncate text-[11px] text-faint">{fu.source}</div>
+                      <div className="mt-1 truncate text-caption text-faint">{fu.source}</div>
                     </div>
                     {fu.dueDate !== null && (
                       <Badge tone={urgencyTone[fu.urgency]}>{dueLabel(fu.dueDate)}</Badge>
@@ -98,7 +113,7 @@ export function TodayScreen() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-medium">{d.title}</div>
-                      <div className="mt-0.5 text-[11px] text-faint capitalize">{d.kind}</div>
+                      <div className="mt-0.5 text-caption text-faint capitalize">{d.kind}</div>
                     </div>
                     <Badge tone={d.daysLeft <= 3 ? 'danger' : d.daysLeft <= 10 ? 'warn' : 'neutral'}>
                       {dueLabel(d.date)}
@@ -126,7 +141,7 @@ export function TodayScreen() {
             <div>
               {data.agentActivity.map((a) => (
                 <div key={a.id} className="flex gap-3 border-b border-line py-2.5 last:border-0">
-                  <span className="tnum pt-px text-[11px] text-faint">{formatTime(a.at)}</span>
+                  <span className="tnum pt-px text-caption text-faint">{formatTime(a.at)}</span>
                   <span className="flex-1 text-sm leading-snug">{a.summary}</span>
                 </div>
               ))}

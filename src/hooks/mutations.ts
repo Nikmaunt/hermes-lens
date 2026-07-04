@@ -1,6 +1,7 @@
+import { useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useData } from '@/data/DataSourceProvider'
-import type { CaptureRequest, FlagAction, TriageDestination } from '@/schemas'
+import type { CaptureRequest, FlagAction, SyncAckRequest, TriageDestination } from '@/schemas'
 
 /**
  * Write actions share one failure policy: try the data source, and when it is
@@ -15,7 +16,10 @@ export function useCapture() {
   const { ds, queue } = useData()
   const queryClient = useQueryClient()
   return useMutation<WriteResult, Error, CaptureRequest>({
-    mutationFn: async (req) => {
+    mutationFn: async (input) => {
+      // One clientId per capture, minted before the first attempt and kept
+      // through queue replays, so the server can dedup retries (F6).
+      const req: CaptureRequest = { ...input, clientId: input.clientId ?? crypto.randomUUID() }
       try {
         await ds.capture(req)
         return { queued: false }
@@ -62,6 +66,31 @@ export function useTriage() {
       void queryClient.invalidateQueries({ queryKey: [ds.kind, 'today'] })
     },
   })
+}
+
+/**
+ * Acknowledge an applied reminders revision, through the same
+ * offline-queue policy as every other write: try now, queue on failure.
+ * Idempotent server-side, so replays are harmless.
+ */
+export function useAckSync() {
+  const { ds, queue } = useData()
+  return useCallback(
+    async (req: SyncAckRequest): Promise<void> => {
+      try {
+        await ds.ackSync(req)
+      } catch {
+        await queue.enqueue({
+          id: crypto.randomUUID(),
+          kind: 'ack-sync',
+          source: ds.kind,
+          enqueuedAt: new Date().toISOString(),
+          req,
+        })
+      }
+    },
+    [ds, queue],
+  )
 }
 
 export function useFlagMemory() {

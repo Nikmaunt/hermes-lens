@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { useSettings } from '@/settings/SettingsProvider'
 
 interface ScreenProps {
   title: string
@@ -14,6 +15,7 @@ interface ScreenProps {
 /** Page wrapper: sticky top bar + content column with safe-area padding. */
 export function Screen({ title, children, back = false, actions, noSearch = false }: ScreenProps) {
   const navigate = useNavigate()
+  const { settings } = useSettings()
   return (
     <div className="mx-auto flex min-h-full w-full max-w-lg flex-col">
       <header
@@ -29,7 +31,14 @@ export function Screen({ title, children, back = false, actions, noSearch = fals
             ←
           </button>
         )}
-        <h1 className="flex-1 truncate text-[19px] font-semibold tracking-tight">{title}</h1>
+        <h1 className="flex-1 truncate text-headline font-semibold tracking-tight">
+          {title}
+          {settings.source === 'mock' && (
+            <span className="ml-2 inline-block rounded-full bg-warn-dim px-2 py-0.5 align-middle text-micro font-semibold tracking-wide text-warn uppercase">
+              Demo
+            </span>
+          )}
+        </h1>
         {actions}
         {!noSearch && (
           <button

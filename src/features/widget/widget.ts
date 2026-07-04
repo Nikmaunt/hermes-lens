@@ -17,18 +17,27 @@ const WidgetBridge = registerPlugin<WidgetBridgePlugin>('WidgetBridge')
 
 const SUMMARY_KEY = 'widget:summary'
 
-export async function updateTodayWidget(summary: TodaySummary): Promise<void> {
+/**
+ * `masked` (Settings → "Hide widget details when locked", F11): the widget
+ * shows no counts or deadline titles while app lock is on — the lock screen
+ * of the phone should not leak what the app itself keeps behind biometrics.
+ */
+export async function updateTodayWidget(summary: TodaySummary, masked = false): Promise<void> {
   if (!Capacitor.isNativePlatform()) return
   const nextDeadline = summary.deadlines[0]
-  const value = JSON.stringify({
-    followUps: summary.followUps.length,
-    inbox: summary.inboxCount,
-    deadline:
-      nextDeadline !== undefined
-        ? `${nextDeadline.title} · ${dueLabel(nextDeadline.date)}`
-        : 'No deadlines in the next 30 days',
-    updatedAt: formatTime(toIsoDateTime(new Date())),
-  })
+  const value = JSON.stringify(
+    masked
+      ? { masked: true, updatedAt: formatTime(toIsoDateTime(new Date())) }
+      : {
+          followUps: summary.followUps.length,
+          inbox: summary.inboxCount,
+          deadline:
+            nextDeadline !== undefined
+              ? `${nextDeadline.title} · ${dueLabel(nextDeadline.date)}`
+              : 'No deadlines in the next 30 days',
+          updatedAt: formatTime(toIsoDateTime(new Date())),
+        },
+  )
   await Preferences.set({ key: SUMMARY_KEY, value })
   try {
     await WidgetBridge.refresh()

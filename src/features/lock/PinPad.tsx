@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { tapLight } from '@/lib/haptics'
 import { PIN_LENGTH } from '@/lib/pin'
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as const
@@ -29,6 +30,7 @@ export function PinPad({
   }, [digits, onComplete])
 
   const press = (key: string) => {
+    tapLight()
     if (key === '⌫') setDigits((d) => d.slice(0, -1))
     else if (key !== '' && digits.length < PIN_LENGTH) setDigits((d) => d + key)
   }
