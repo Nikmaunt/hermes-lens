@@ -1,15 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Screen } from '@/components/Screen'
 import { Card, SectionHeader } from '@/components/primitives'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useData } from '@/data/DataSourceProvider'
+import { getValidationLog, onValidationLogChange, type ValidationLogEntry } from '@/data/debugLog'
 import { preferencesKV } from '@/data/kv'
+import type { DeadLetter, QueuedMutation } from '@/data/mutationQueue'
+import { relativeTime } from '@/lib/dates'
 import { clearPin } from '@/lib/pin'
 import { TriageDestination } from '@/schemas'
 import { useSettings } from '@/settings/SettingsProvider'
 import type { SwipeMapping } from '@/settings/settings'
 import { biometryAvailable } from '../lock/biometric'
 import { useAuth } from '../lock/LockGate'
+
+/** One-line human description of a queued mutation for the dead-letter list. */
+function describeMutation(item: QueuedMutation): string {
+  if (item.kind === 'capture') {
+    const text = item.req.text.length > 60 ? `${item.req.text.slice(0, 60)}…` : item.req.text
+    return `Capture: “${text}”`
+  }
+  if (item.kind === 'triage') return `Triage ${item.itemId} → ${item.req.destination}`
+  return `Flag ${item.itemId}: ${item.req.action}`
+}
 
 const DIRECTIONS: { key: keyof SwipeMapping; label: string; arrow: string }[] = [
   { key: 'right', label: 'Swipe right', arrow: '→' },
@@ -24,6 +37,31 @@ export function SettingsScreen() {
   const { setupPin, pinConfigured } = useAuth()
   const snackbar = useSnackbar()
   const [showToken, setShowToken] = useState(false)
+  const [deadLetters, setDeadLetters] = useState<DeadLetter[]>([])
+  const [validationLog, setValidationLog] = useState<readonly ValidationLogEntry[]>(
+    getValidationLog(),
+  )
+
+  useEffect(() => {
+    const refresh = () => void queue.deadLetters().then(setDeadLetters)
+    refresh()
+    return queue.onDeadLetterChange(refresh)
+  }, [queue])
+
+  useEffect(() => onValidationLogChange(() => setValidationLog([...getValidationLog()])), [])
+
+  const retryDeadLetter = async (id: string) => {
+    await queue.retryDeadLetter(id)
+    const flushed = await queue.drain(ds)
+    snackbar.show({
+      message: flushed > 0 ? 'Sent ✓' : 'Requeued — still failing, kept in the queue',
+    })
+  }
+
+  const discardDeadLetter = async (id: string) => {
+    await queue.discardDeadLetter(id)
+    snackbar.show({ message: 'Action discarded' })
+  }
 
   const toggleLock = async (enabled: boolean) => {
     if (!enabled) {
@@ -137,6 +175,36 @@ export function SettingsScreen() {
         </div>
       </Card>
 
+      {deadLetters.length > 0 && (
+        <>
+          <SectionHeader>Failed actions</SectionHeader>
+          <Card className="divide-y divide-line p-0">
+            {deadLetters.map((dead) => (
+              <div key={dead.item.id} className="px-4 py-3">
+                <div className="text-sm">{describeMutation(dead.item)}</div>
+                <div className="mt-0.5 text-[11px] text-faint">
+                  {dead.reason} · {relativeTime(dead.failedAt)}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => void retryDeadLetter(dead.item.id)}
+                    className="bg-accent-dim text-accent rounded-full px-3 py-1.5 text-xs font-semibold active:opacity-70"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    onClick={() => void discardDeadLetter(dead.item.id)}
+                    className="text-danger rounded-full border border-line px-3 py-1.5 text-xs font-medium active:bg-raised"
+                  >
+                    Discard
+                  </button>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </>
+      )}
+
       <SectionHeader>Security</SectionHeader>
       <Card className="divide-y divide-line p-0">
         <ToggleRow
@@ -212,6 +280,34 @@ export function SettingsScreen() {
           </div>
         ))}
       </Card>
+
+      {validationLog.length > 0 && (
+        <>
+          <SectionHeader>Debug — invalid payloads</SectionHeader>
+          <Card className="divide-y divide-line p-0">
+            {validationLog.map((entry, i) => (
+              <div key={`${entry.at}-${i}`} className="px-4 py-3">
+                <div className="font-mono text-xs">{entry.path}</div>
+                <div className="mt-0.5 text-[11px] text-faint">{relativeTime(entry.at)}</div>
+                <ul className="mt-1 space-y-0.5">
+                  {entry.issues.slice(0, 5).map((issue, j) => (
+                    <li key={j} className="font-mono text-[11px] text-warn">
+                      {issue}
+                    </li>
+                  ))}
+                  {entry.issues.length > 5 && (
+                    <li className="text-[11px] text-faint">+{entry.issues.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            ))}
+          </Card>
+          <p className="mt-2 px-1 text-[11px] text-faint">
+            The agent answered, but the payload didn't match the contract. In-memory only,
+            cleared on restart.
+          </p>
+        </>
+      )}
 
       <p className="mt-8 text-center text-[11px] text-faint">
         Hermes Lens · private build · no telemetry, ever

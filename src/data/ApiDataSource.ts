@@ -20,12 +20,24 @@ import {
   type TriageRequest,
 } from '@/schemas'
 import type { DataSource, TimelineParams } from './DataSource'
+import { recordValidationIssues } from './debugLog'
 
 const REQUEST_TIMEOUT_MS = 10_000
+
+/**
+ * What went wrong, for UI decisions (F4):
+ * - timeout  — the agent host did not answer in time (VPN off, host asleep)
+ * - network  — request never completed (offline, DNS, connection refused)
+ * - auth     — the agent answered 401/403: the token is wrong or revoked
+ * - server   — the agent answered with any other non-2xx status
+ * - invalid  — the payload arrived but failed schema validation
+ */
+export type ApiErrorKind = 'timeout' | 'network' | 'auth' | 'server' | 'invalid'
 
 export class ApiError extends Error {
   constructor(
     message: string,
+    readonly kind: ApiErrorKind = 'network',
     readonly status: number | null = null,
   ) {
     super(message)
@@ -49,7 +61,11 @@ export class ApiDataSource implements DataSource {
   private async request<T>(schema: ZodType<T>, path: string, body?: unknown): Promise<T> {
     const url = this.baseUrl.replace(/\/+$/, '') + path
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, REQUEST_TIMEOUT_MS)
     let res: Response
     try {
       res = await fetch(url, {
@@ -62,14 +78,25 @@ export class ApiDataSource implements DataSource {
         signal: controller.signal,
       })
     } catch {
-      throw new ApiError('Agent unreachable')
+      throw timedOut
+        ? new ApiError('Agent timed out', 'timeout')
+        : new ApiError('Agent unreachable', 'network')
     } finally {
       clearTimeout(timer)
     }
-    if (!res.ok) throw new ApiError(`Agent returned ${res.status}`, res.status)
+    if (!res.ok) {
+      const kind = res.status === 401 || res.status === 403 ? 'auth' : 'server'
+      throw new ApiError(`Agent returned ${res.status}`, kind, res.status)
+    }
     const json: unknown = await res.json()
     const parsed = schema.safeParse(json)
-    if (!parsed.success) throw new ApiError(`Invalid payload from ${path}`)
+    if (!parsed.success) {
+      recordValidationIssues(
+        path,
+        parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+      )
+      throw new ApiError(`Invalid payload from ${path}`, 'invalid')
+    }
     return parsed.data
   }
 

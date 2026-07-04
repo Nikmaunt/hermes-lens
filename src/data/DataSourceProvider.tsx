@@ -16,6 +16,8 @@ interface DataContextValue {
   queue: MutationQueue
   /** Number of offline-queued mutations, live. */
   pendingCount: number
+  /** Number of permanently rejected mutations awaiting a user decision, live. */
+  deadLetterCount: number
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -35,9 +37,16 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     return new MockDataSource(preferencesKV)
   }, [settings.source, settings.apiBaseUrl, apiToken])
 
+  const [deadLetterCount, setDeadLetterCount] = useState(0)
+
   useEffect(() => {
     void queue.count().then(setPendingCount)
     return queue.onCountChange(setPendingCount)
+  }, [])
+
+  useEffect(() => {
+    void queue.deadLetters().then((dead) => setDeadLetterCount(dead.length))
+    return queue.onDeadLetterChange(setDeadLetterCount)
   }, [])
 
   // Drain the offline queue whenever the app returns to the foreground,
@@ -59,8 +68,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
   }, [ds, queryClient])
 
   const value = useMemo(
-    () => ({ ds, cache, queue, pendingCount }),
-    [ds, pendingCount],
+    () => ({ ds, cache, queue, pendingCount, deadLetterCount }),
+    [ds, pendingCount, deadLetterCount],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }
