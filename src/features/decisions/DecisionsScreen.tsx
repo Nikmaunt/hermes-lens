@@ -10,6 +10,7 @@ import {
   ListSkeleton,
   StaleBanner,
 } from '@/components/primitives'
+import { ScaleIcon } from '@/components/icons'
 import { useDecisions, useProjects } from '@/hooks/queries'
 import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { daysUntil, formatDate } from '@/lib/dates'
@@ -59,7 +60,7 @@ export function DecisionsScreen() {
           />
         )}
         {!isLoading && data !== undefined && decisions.length === 0 && (
-          <EmptyState icon="⚖️" title="No decisions recorded here" />
+          <EmptyState icon={<ScaleIcon size={30} />} title="No decisions recorded here" />
         )}
         <div className="space-y-3">
           {decisions.map((decision) => (

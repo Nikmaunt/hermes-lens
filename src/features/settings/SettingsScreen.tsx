@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { Screen } from '@/components/Screen'
 import { Card, ConfirmDialog, SectionHeader } from '@/components/primitives'
+import { CalendarIcon } from '@/components/icons'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useData } from '@/data/DataSourceProvider'
 import { getValidationLog, onValidationLogChange, type ValidationLogEntry } from '@/data/debugLog'
@@ -174,7 +175,7 @@ export function SettingsScreen() {
                 placeholder="http://hermes-vps:8787"
                 autoCapitalize="none"
                 autoCorrect="off"
-                className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent"
+                className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
               />
             </label>
             <label className="block">
@@ -187,7 +188,7 @@ export function SettingsScreen() {
                   placeholder="paste the static token"
                   autoCapitalize="none"
                   autoCorrect="off"
-                  className="w-full flex-1 rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent"
+                  className="w-full flex-1 rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
                 />
                 <button
                   onClick={() => setShowToken((v) => !v)}
@@ -424,7 +425,9 @@ export function SettingsScreen() {
 
       {calendarExplainer && (
         <div className="bg-bg/95 fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 backdrop-blur-sm">
-          <div className="text-3xl">🗓</div>
+          <div className="text-faint">
+            <CalendarIcon size={30} />
+          </div>
           <div className="max-w-72 space-y-3 text-center">
             <h2 className="text-lg font-semibold">Reminders in your calendar</h2>
             <p className="text-sm text-muted">

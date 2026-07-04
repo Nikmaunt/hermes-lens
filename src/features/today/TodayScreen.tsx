@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
 import {
-  Badge,
   Card,
   EmptyState,
   ErrorState,
@@ -11,14 +10,16 @@ import {
   StaleBanner,
   TodaySkeleton,
 } from '@/components/primitives'
+import { DueBadge, type DueTone } from '@/components/DueBadge'
+import { SunIcon } from '@/components/icons'
 import { useToday } from '@/hooks/queries'
 import { useSettings } from '@/settings/SettingsProvider'
-import { dueLabel, formatDay, formatTime } from '@/lib/dates'
+import { formatDay, formatTime } from '@/lib/dates'
 import type { FollowUp } from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
 
-const urgencyTone: Record<FollowUp['urgency'], 'danger' | 'warn' | 'neutral'> = {
-  overdue: 'danger',
+const urgencyTone: Record<FollowUp['urgency'], DueTone> = {
+  overdue: 'overdue',
   today: 'warn',
   soon: 'neutral',
 }
@@ -51,7 +52,7 @@ export function TodayScreen() {
           data.deadlines.length === 0 &&
           data.agentActivity.length === 0 && (
             <EmptyState
-              icon="☀"
+              icon={<SunIcon size={30} />}
               title="All clear"
               hint="No follow-ups, no deadlines, an empty inbox and a quiet agent. Enjoy it."
             />
@@ -85,7 +86,7 @@ export function TodayScreen() {
                       <div className="mt-1 truncate text-caption text-faint">{fu.source}</div>
                     </div>
                     {fu.dueDate !== null && (
-                      <Badge tone={urgencyTone[fu.urgency]}>{dueLabel(fu.dueDate)}</Badge>
+                      <DueBadge date={fu.dueDate} tone={urgencyTone[fu.urgency]} />
                     )}
                   </div>
                 </Card>
@@ -115,9 +116,10 @@ export function TodayScreen() {
                       <div className="truncate text-sm font-medium">{d.title}</div>
                       <div className="mt-0.5 text-caption text-faint capitalize">{d.kind}</div>
                     </div>
-                    <Badge tone={d.daysLeft <= 3 ? 'danger' : d.daysLeft <= 10 ? 'warn' : 'neutral'}>
-                      {dueLabel(d.date)}
-                    </Badge>
+                    <DueBadge
+                      date={d.date}
+                      tone={d.daysLeft <= 3 ? 'overdue' : d.daysLeft <= 10 ? 'warn' : 'neutral'}
+                    />
                   </div>
                 </Card>
               ))}

@@ -10,17 +10,26 @@ import {
   SectionHeader,
   StaleBanner,
 } from '@/components/primitives'
+import { DueBadge } from '@/components/DueBadge'
+import {
+  FileTextIcon,
+  IdCardIcon,
+  RefreshIcon,
+  ScrollTextIcon,
+  ShieldIcon,
+  type IconComponent,
+} from '@/components/icons'
 import { useDocuments } from '@/hooks/queries'
 import { useHighlightScroll } from '@/hooks/useHighlightScroll'
-import { daysUntil, dueLabel, formatDate } from '@/lib/dates'
+import { daysUntil, formatDate } from '@/lib/dates'
 import { formatMoney } from '@/lib/fmt'
 import type { DocumentItem } from '@/schemas'
 
-const KIND_ICONS: Record<DocumentItem['kind'], string> = {
-  contract: '📜',
-  subscription: '🔁',
-  insurance: '🛡',
-  'id-document': '🪪',
+const KIND_ICONS: Record<DocumentItem['kind'], IconComponent> = {
+  contract: ScrollTextIcon,
+  subscription: RefreshIcon,
+  insurance: ShieldIcon,
+  'id-document': IdCardIcon,
 }
 
 /** Sort by the most pressing upcoming date (cancelBy beats renewsOn). */
@@ -73,21 +82,24 @@ export function DocumentsScreen() {
             </Card>
 
             <SectionHeader>Contracts & subscriptions</SectionHeader>
-            {sorted.length === 0 && <EmptyState icon="📄" title="No documents tracked" />}
+            {sorted.length === 0 && (
+              <EmptyState icon={<FileTextIcon size={30} />} title="No documents tracked" />
+            )}
             <div className="space-y-2">
               {sorted.map((doc) => {
                 const cancelSoon =
                   doc.cancelBy !== null &&
                   daysUntil(doc.cancelBy) >= 0 &&
                   daysUntil(doc.cancelBy) <= 14
+                const KindIcon = KIND_ICONS[doc.kind]
                 return (
                   <div key={doc.id} data-item-id={doc.id}>
                   <Card className={cancelSoon ? 'border-danger/40' : ''}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm leading-snug font-medium">
-                          <span className="mr-1.5" aria-hidden>
-                            {KIND_ICONS[doc.kind]}
+                        <div className="flex items-center gap-1.5 text-sm leading-snug font-medium">
+                          <span className="shrink-0 text-faint" aria-hidden>
+                            <KindIcon size={15} />
                           </span>
                           {doc.title}
                         </div>
@@ -110,12 +122,14 @@ export function DocumentsScreen() {
                         <Badge tone="danger">cancel by {formatDate(doc.cancelBy)}</Badge>
                       )}
                       {!cancelSoon && doc.cancelBy !== null && daysUntil(doc.cancelBy) >= 0 && (
-                        <Badge tone="warn">cancel window {dueLabel(doc.cancelBy)}</Badge>
+                        <DueBadge date={doc.cancelBy} tone="warn" prefix="cancel window" />
                       )}
                       {doc.renewsOn !== null && (
-                        <Badge tone={daysUntil(doc.renewsOn) <= 7 ? 'warn' : 'neutral'}>
-                          renews {dueLabel(doc.renewsOn)}
-                        </Badge>
+                        <DueBadge
+                          date={doc.renewsOn}
+                          tone={daysUntil(doc.renewsOn) <= 7 ? 'warn' : 'neutral'}
+                          prefix="renews"
+                        />
                       )}
                     </div>
 

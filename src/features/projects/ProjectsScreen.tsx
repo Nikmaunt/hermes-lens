@@ -9,6 +9,7 @@ import {
   ListSkeleton,
   StaleBanner,
 } from '@/components/primitives'
+import { FolderIcon, StickyNoteIcon } from '@/components/icons'
 import { useProjects } from '@/hooks/queries'
 import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDate, relativeTime } from '@/lib/dates'
@@ -38,7 +39,7 @@ export function ProjectsScreen() {
           />
         )}
         {data !== undefined && data.projects.length === 0 && (
-          <EmptyState icon="🗂" title="No projects tracked yet" />
+          <EmptyState icon={<FolderIcon size={30} />} title="No projects tracked yet" />
         )}
         <div className="space-y-3">
           {data?.projects.map((project) => (
@@ -75,10 +76,10 @@ export function ProjectsScreen() {
                   {project.linkedNotes.map((note) => (
                     <span
                       key={note.id}
-                      className="rounded-full border border-line px-2.5 py-1 text-caption text-muted"
+                      className="inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-caption text-muted"
                       title={`updated ${relativeTime(note.updatedAt)}`}
                     >
-                      🗒 {note.title}
+                      <StickyNoteIcon size={11} /> {note.title}
                     </span>
                   ))}
                 </div>
