@@ -11,7 +11,7 @@ import {
 import { App as CapApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { preferencesKV } from '@/data/kv'
-import { hasPin, setPin, verifyPin } from '@/lib/pin'
+import { attemptUnlock, hasPin, setPin } from '@/lib/pin'
 import { useSettings } from '@/settings/SettingsProvider'
 import { biometricAuthenticate, biometryAvailable } from './biometric'
 import { PinPad } from './PinPad'
@@ -32,6 +32,18 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/** "wait 30 s" / "wait 5 min" for lockout error messages. */
+function lockoutLabel(ms: number): string {
+  const s = Math.ceil(ms / 1000)
+  return s < 60 ? `${s} s` : `${Math.ceil(s / 60)} min`
+}
+
+function pinErrorMessage(result: { lockedForMs: number }): string {
+  return result.lockedForMs > 0
+    ? `Too many attempts — wait ${lockoutLabel(result.lockedForMs)}`
+    : 'Wrong PIN, try again'
+}
+
 type PinModal =
   | { mode: 'verify'; reason: string; resolve: (ok: boolean) => void; error?: string }
   | { mode: 'create'; first?: string; resolve: (ok: boolean) => void; error?: string }
@@ -39,7 +51,7 @@ type PinModal =
 export function LockGate({ children }: { children: ReactNode }) {
   const { settings } = useSettings()
   const [locked, setLocked] = useState(settings.appLock)
-  const [unlockError, setUnlockError] = useState(false)
+  const [unlockError, setUnlockError] = useState<string | null>(null)
   const [pinConfigured, setPinConfigured] = useState(false)
   const [pinModal, setPinModal] = useState<PinModal | null>(null)
   const [lockPinMode, setLockPinMode] = useState(false)
@@ -71,13 +83,13 @@ export function LockGate({ children }: { children: ReactNode }) {
   }, [settings.appLock])
 
   const tryBiometricUnlock = useCallback(async () => {
-    setUnlockError(false)
+    setUnlockError(null)
     if (await biometryAvailable()) {
       if (await biometricAuthenticate('Unlock Hermes Lens')) {
         setLocked(false)
         return
       }
-      setUnlockError(true)
+      setUnlockError('Authentication failed')
     }
     // No biometry (or it failed): fall back to the PIN pad when one exists.
     if (await hasPin(preferencesKV)) setLockPinMode(true)
@@ -125,11 +137,12 @@ export function LockGate({ children }: { children: ReactNode }) {
     async (pin: string) => {
       if (pinModal === null) return
       if (pinModal.mode === 'verify') {
-        if (await verifyPin(preferencesKV, pin)) {
+        const result = await attemptUnlock(preferencesKV, pin)
+        if (result.ok) {
           pinModal.resolve(true)
           setPinModal(null)
         } else {
-          setPinModal({ ...pinModal, error: 'Wrong PIN, try again' })
+          setPinModal({ ...pinModal, error: pinErrorMessage(result) })
         }
         return
       }
@@ -166,19 +179,19 @@ export function LockGate({ children }: { children: ReactNode }) {
           <PinPad
             title="Enter PIN"
             onComplete={(pin) => {
-              void verifyPin(preferencesKV, pin).then((ok) => {
-                if (ok) {
+              void attemptUnlock(preferencesKV, pin).then((result) => {
+                if (result.ok) {
                   setLockPinMode(false)
                   setLocked(false)
-                  setUnlockError(false)
-                } else setUnlockError(true)
+                  setUnlockError(null)
+                } else setUnlockError(pinErrorMessage(result))
               })
             }}
-            {...(unlockError ? { error: 'Wrong PIN' } : {})}
+            {...(unlockError !== null ? { error: unlockError } : {})}
           />
         ) : (
           <div className="flex flex-col items-center gap-3">
-            {unlockError && <div className="text-danger text-xs">Authentication failed</div>}
+            {unlockError !== null && <div className="text-danger text-xs">{unlockError}</div>}
             <button
               onClick={() => void tryBiometricUnlock()}
               className="bg-accent text-accent-ink rounded-full px-8 py-3 text-sm font-semibold active:opacity-80"
