@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { Screen } from '@/components/Screen'
 import { Card, SectionHeader } from '@/components/primitives'
 import { useSnackbar } from '@/components/SnackbarProvider'
@@ -13,6 +14,7 @@ import { useSettings } from '@/settings/SettingsProvider'
 import type { SwipeMapping } from '@/settings/settings'
 import { biometryAvailable } from '../lock/biometric'
 import { useAuth } from '../lock/LockGate'
+import { CalendarBridge, type DeviceCalendar } from '../reminders/calendarBridge'
 
 /** One-line human description of a queued mutation for the dead-letter list. */
 function describeMutation(item: QueuedMutation): string {
@@ -50,6 +52,44 @@ export function SettingsScreen() {
   }, [queue])
 
   useEffect(() => onValidationLogChange(() => setValidationLog([...getValidationLog()])), [])
+
+  const [calendarExplainer, setCalendarExplainer] = useState(false)
+  const [deviceCalendars, setDeviceCalendars] = useState<DeviceCalendar[]>([])
+
+  useEffect(() => {
+    if (!settings.calendarSyncEnabled || !Capacitor.isNativePlatform()) return
+    void CalendarBridge.listCalendars()
+      .then(({ calendars }) => setDeviceCalendars(calendars))
+      .catch(() => setDeviceCalendars([]))
+  }, [settings.calendarSyncEnabled])
+
+  const toggleCalendarSync = (enabled: boolean) => {
+    if (!enabled) {
+      update({ calendarSyncEnabled: false })
+      return
+    }
+    if (!Capacitor.isNativePlatform()) {
+      snackbar.show({ message: 'Calendar sync works on the phone build' })
+      return
+    }
+    // Designed pre-permission explainer before the system dialog.
+    setCalendarExplainer(true)
+  }
+
+  const confirmCalendarSync = async () => {
+    setCalendarExplainer(false)
+    try {
+      const perm = await CalendarBridge.requestPermissions()
+      if (perm.calendar !== 'granted') {
+        snackbar.show({ message: 'Calendar permission was declined — sync stays off' })
+        return
+      }
+      update({ calendarSyncEnabled: true })
+      snackbar.show({ message: 'Reminders will appear in your calendar on the next refresh' })
+    } catch {
+      snackbar.show({ message: 'Calendar access unavailable on this device' })
+    }
+  }
 
   const retryDeadLetter = async (id: string) => {
     await queue.retryDeadLetter(id)
@@ -180,6 +220,39 @@ export function SettingsScreen() {
             </button>
           )}
         </div>
+      </Card>
+
+      <SectionHeader>Calendar</SectionHeader>
+      <Card className="p-0">
+        <ToggleRow
+          label="Sync reminders to calendar"
+          hint="agent deadlines appear as events, refreshed while the app is open"
+          checked={settings.calendarSyncEnabled}
+          onChange={toggleCalendarSync}
+        />
+        {settings.calendarSyncEnabled && (
+          <div className="border-t border-line px-4 py-3.5">
+            <span className="mb-1 block text-xs font-medium text-muted">Target calendar</span>
+            <select
+              value={settings.calendarTargetId}
+              onChange={(e) => update({ calendarTargetId: e.target.value })}
+              className="w-full rounded-lg border border-line bg-raised px-2 py-2 text-sm outline-none"
+            >
+              <option value="">Hermes — stays on this device</option>
+              {deviceCalendars
+                .filter((cal) => !(cal.isLocal && cal.name === 'Hermes'))
+                .map((cal) => (
+                  <option key={cal.id} value={cal.id}>
+                    {cal.name} ({cal.account})
+                  </option>
+                ))}
+            </select>
+            <p className="mt-2 text-[11px] text-faint">
+              Account calendars (Google, Samsung…) upload event titles to that provider's
+              cloud. The local Hermes calendar never leaves the phone.
+            </p>
+          </div>
+        )}
       </Card>
 
       {deadLetters.length > 0 && (
@@ -319,6 +392,38 @@ export function SettingsScreen() {
       <p className="mt-8 text-center text-[11px] text-faint">
         Hermes Lens · private build · no telemetry, ever
       </p>
+
+      {calendarExplainer && (
+        <div className="bg-bg/95 fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 backdrop-blur-sm">
+          <div className="text-3xl">🗓</div>
+          <div className="max-w-72 space-y-3 text-center">
+            <h2 className="text-lg font-semibold">Reminders in your calendar</h2>
+            <p className="text-sm text-muted">
+              Hermes mirrors the agent's dated commitments into a calendar so they show up
+              next to everything else — by default a local “Hermes” calendar that stays on
+              this device.
+            </p>
+            <p className="text-xs text-faint">
+              Android will now ask for calendar access. Hermes only touches events it created
+              and only while the app is open — no background work, ever.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={() => void confirmCalendarSync()}
+              className="bg-accent text-accent-ink rounded-full px-8 py-3 text-sm font-semibold active:opacity-80"
+            >
+              Continue
+            </button>
+            <button
+              onClick={() => setCalendarExplainer(false)}
+              className="text-sm text-faint active:opacity-70"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
     </Screen>
   )
 }

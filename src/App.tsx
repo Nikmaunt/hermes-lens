@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Outlet, Route, Routes, useNavigate } from 'react-router'
+import { Capacitor } from '@capacitor/core'
 import { AuthBanner } from './components/AuthBanner'
 import { BottomNav } from './components/BottomNav'
 import { SnackbarProvider } from './components/SnackbarProvider'
@@ -7,6 +8,7 @@ import { ListSkeleton } from './components/primitives'
 import { DataSourceProvider } from './data/DataSourceProvider'
 import { SettingsProvider, useSettings } from './settings/SettingsProvider'
 import { onSharedText } from './features/capture/shareTarget'
+import { CalendarSyncDriver } from './features/reminders/CalendarSyncDriver'
 import { FirstRunScreen } from './features/onboarding/FirstRunScreen'
 import { LockGate } from './features/lock/LockGate'
 // Core tabs stay in the main chunk for an instant first paint.
@@ -53,6 +55,7 @@ const SettingsScreen = lazy(() =>
 
 function Shell() {
   const navigate = useNavigate()
+  const { settings } = useSettings()
 
   // Android share sheet → Capture screen, prefilled for review.
   useEffect(
@@ -68,6 +71,7 @@ function Shell() {
       <Suspense fallback={<div className="p-4 pt-16"><ListSkeleton rows={4} /></div>}>
         <Outlet />
       </Suspense>
+      {settings.calendarSyncEnabled && Capacitor.isNativePlatform() && <CalendarSyncDriver />}
       <AuthBanner />
       <BottomNav />
     </div>

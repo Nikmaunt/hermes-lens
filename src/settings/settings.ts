@@ -23,6 +23,12 @@ export const Settings = z.object({
   // plaintext copy inside this object is migrated out on startup.
   appLock: z.boolean().catch(false),
   theme: z.enum(['dark', 'light']).catch('dark'),
+  /** Mirror agent reminders into the device calendar (foreground-only). */
+  calendarSyncEnabled: z.boolean().catch(false),
+  /** Target calendar id; '' = the on-device local "Hermes" calendar. */
+  calendarTargetId: z.string().catch(''),
+  /** Blank out counts/deadline in the home-screen widget while app-lock is on. */
+  widgetHideDetails: z.boolean().catch(false),
   swipeMapping: SwipeMapping.catch({
     right: 'note',
     left: 'archive',

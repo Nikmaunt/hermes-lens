@@ -16,6 +16,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(WidgetBridgePlugin.class);
         registerPlugin(ShareBridgePlugin.class);
+        registerPlugin(CalendarBridgePlugin.class);
         super.onCreate(savedInstanceState);
         captureShare(getIntent());
     }
