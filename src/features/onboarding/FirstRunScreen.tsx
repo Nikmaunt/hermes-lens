@@ -64,7 +64,7 @@ export function FirstRunScreen() {
               autoCorrect="off"
               className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent"
             />
-            <span className="mt-1 block text-[11px] text-faint">
+            <span className="mt-1 block text-caption text-faint">
               Stored in Android Keystore-backed encrypted storage. Never logged, never leaves the
               tailnet.
             </span>
@@ -72,7 +72,7 @@ export function FirstRunScreen() {
           <button
             onClick={connect}
             disabled={baseUrl.trim() === ''}
-            className="bg-accent text-accent-ink w-full rounded-(--radius-card) py-3.5 text-[15px] font-semibold transition-opacity active:opacity-80 disabled:opacity-30"
+            className="bg-accent text-accent-ink w-full rounded-(--radius-card) py-3.5 text-body font-semibold transition-opacity active:opacity-80 disabled:opacity-30"
           >
             Connect
           </button>
@@ -87,17 +87,17 @@ export function FirstRunScreen() {
         <div className="space-y-3">
           <button
             onClick={() => setConnecting(true)}
-            className="bg-accent text-accent-ink w-full rounded-(--radius-card) py-3.5 text-[15px] font-semibold transition-opacity active:opacity-80"
+            className="bg-accent text-accent-ink w-full rounded-(--radius-card) py-3.5 text-body font-semibold transition-opacity active:opacity-80"
           >
             Connect your agent
           </button>
           <button
             onClick={useDemo}
-            className="w-full rounded-(--radius-card) border border-line bg-surface py-3.5 text-[15px] font-medium text-muted active:bg-raised"
+            className="w-full rounded-(--radius-card) border border-line bg-surface py-3.5 text-body font-medium text-muted active:bg-raised"
           >
             Try demo mode
           </button>
-          <p className="text-center text-[11px] text-faint">
+          <p className="text-center text-caption text-faint">
             Demo mode shows bundled sample data — nothing real, nothing synced. You can connect
             the agent later in Settings.
           </p>

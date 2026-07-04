@@ -10,8 +10,10 @@ import {
   ListSkeleton,
   StaleBanner,
 } from '@/components/primitives'
+import { FilterChip } from '@/components/FilterChip'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useMemoryItems } from '@/hooks/queries'
+import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { useFlagMemory } from '@/hooks/mutations'
 import { relativeTime } from '@/lib/dates'
 import { MemoryCategory, type MemoryItem } from '@/schemas'
@@ -44,6 +46,8 @@ export function MemoryScreen() {
     return [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   }, [data, category, topic])
 
+  useHighlightScroll(items.length > 0)
+
   return (
     <Screen
       title="Memory"
@@ -58,16 +62,20 @@ export function MemoryScreen() {
       }
     >
       <div className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
-        <Chip
+        <FilterChip
           active={category === undefined && topic === null}
           onClick={() => setSearchParams({})}
         >
           All
-        </Chip>
+        </FilterChip>
         {MemoryCategory.options.map((c) => (
-          <Chip key={c} active={category === c} onClick={() => setSearchParams({ category: c })}>
+          <FilterChip
+            key={c}
+            active={category === c}
+            onClick={() => setSearchParams({ category: c })}
+          >
             {CATEGORY_LABELS[c]}
-          </Chip>
+          </FilterChip>
         ))}
       </div>
       {topic !== null && (
@@ -93,7 +101,9 @@ export function MemoryScreen() {
         )}
         <div className="space-y-2">
           {items.map((item) => (
-            <MemoryCard key={item.id} item={item} />
+            <div key={item.id} data-item-id={item.id}>
+              <MemoryCard item={item} />
+            </div>
           ))}
         </div>
       </PullToRefresh>
@@ -136,7 +146,7 @@ function MemoryCard({ item }: { item: MemoryItem }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-semibold tracking-wide text-faint uppercase">
+            <span className="text-caption font-semibold tracking-wide text-faint uppercase">
               {item.topic}
             </span>
             {item.sensitivity === 'sensitive' && <Badge tone="danger">sensitive</Badge>}
@@ -154,13 +164,13 @@ function MemoryCard({ item }: { item: MemoryItem }) {
           ) : (
             <div className="text-sm leading-snug">{item.fact}</div>
           )}
-          <div className="mt-1.5 text-[11px] text-faint">
+          <div className="mt-1.5 text-caption text-faint">
             {item.source} · updated {relativeTime(item.updatedAt)}
           </div>
         </div>
       </div>
       {expanded && !hidden && item.pendingFlag === null && (
-        <div className="mt-3 flex gap-2 border-t border-line pt-3">
+        <div className="animate-expand mt-3 flex gap-2 border-t border-line pt-3">
           <ActionButton
             label="Request forget"
             tone="danger"
@@ -208,23 +218,3 @@ function ActionButton({
   )
 }
 
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-        active ? 'bg-accent text-accent-ink' : 'bg-surface border border-line text-muted'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}

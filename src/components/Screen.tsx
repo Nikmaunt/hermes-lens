@@ -31,10 +31,10 @@ export function Screen({ title, children, back = false, actions, noSearch = fals
             ←
           </button>
         )}
-        <h1 className="flex-1 truncate text-[19px] font-semibold tracking-tight">
+        <h1 className="flex-1 truncate text-headline font-semibold tracking-tight">
           {title}
           {settings.source === 'mock' && (
-            <span className="ml-2 inline-block rounded-full bg-warn-dim px-2 py-0.5 align-middle text-[10px] font-semibold tracking-wide text-warn uppercase">
+            <span className="ml-2 inline-block rounded-full bg-warn-dim px-2 py-0.5 align-middle text-micro font-semibold tracking-wide text-warn uppercase">
               Demo
             </span>
           )}

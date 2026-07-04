@@ -11,6 +11,7 @@ import {
   StaleBanner,
 } from '@/components/primitives'
 import { useDecisions, useProjects } from '@/hooks/queries'
+import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { daysUntil, formatDate } from '@/lib/dates'
 import type { Decision } from '@/schemas'
 
@@ -18,6 +19,8 @@ export function DecisionsScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
   const projectFilter = searchParams.get('project')
   const { data, staleSince, errorKind, isLoading, error, refetch } = useDecisions()
+
+  useHighlightScroll(data !== undefined)
   const projects = useProjects()
 
   const projectName = (id: string | null): string | null =>
@@ -60,11 +63,9 @@ export function DecisionsScreen() {
         )}
         <div className="space-y-3">
           {decisions.map((decision) => (
-            <DecisionCard
-              key={decision.id}
-              decision={decision}
-              projectName={projectName(decision.projectId)}
-            />
+            <div key={decision.id} data-item-id={decision.id}>
+              <DecisionCard decision={decision} projectName={projectName(decision.projectId)} />
+            </div>
           ))}
         </div>
       </PullToRefresh>
@@ -87,7 +88,7 @@ function DecisionCard({
     <Card onClick={() => setExpanded((e) => !e)}>
       <div className="flex items-start justify-between gap-3">
         <div className="text-sm leading-snug font-semibold">{decision.title}</div>
-        <span className="tnum text-[11px] whitespace-nowrap text-faint">
+        <span className="tnum text-caption whitespace-nowrap text-faint">
           {formatDate(decision.decidedOn)}
         </span>
       </div>
@@ -100,15 +101,15 @@ function DecisionCard({
         )}
       </div>
       {!expanded && (
-        <p className="mt-2 line-clamp-2 text-[13px] leading-snug text-muted">{decision.context}</p>
+        <p className="mt-2 line-clamp-2 text-body-sm leading-snug text-muted">{decision.context}</p>
       )}
       {expanded && (
-        <div className="mt-3 space-y-3 text-[13px] leading-relaxed">
+        <div className="mt-3 space-y-3 text-body-sm leading-relaxed">
           <Block label="Context">{decision.context}</Block>
           <Block label="Reasoning">{decision.reasoning}</Block>
           {decision.alternatives.length > 0 && (
             <div>
-              <div className="mb-1 text-[10px] font-semibold tracking-wide text-faint uppercase">
+              <div className="mb-1 text-micro font-semibold tracking-wide text-faint uppercase">
                 alternatives considered
               </div>
               <ul className="space-y-1">
@@ -132,7 +133,7 @@ function DecisionCard({
 function Block({ label, children }: { label: string; children: string }) {
   return (
     <div>
-      <div className="mb-1 text-[10px] font-semibold tracking-wide text-faint uppercase">
+      <div className="mb-1 text-micro font-semibold tracking-wide text-faint uppercase">
         {label}
       </div>
       <p className="text-muted">{children}</p>

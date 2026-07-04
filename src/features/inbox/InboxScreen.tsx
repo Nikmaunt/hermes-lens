@@ -11,6 +11,7 @@ import { useSnackbar } from '@/components/SnackbarProvider'
 import { useInbox } from '@/hooks/queries'
 import { useTriage } from '@/hooks/mutations'
 import { relativeTime } from '@/lib/dates'
+import { tapMedium } from '@/lib/haptics'
 import type { InboxItem, TriageDestination } from '@/schemas'
 import { useSettings } from '@/settings/SettingsProvider'
 import type { SwipeMapping } from '@/settings/settings'
@@ -57,6 +58,7 @@ export function InboxScreen() {
   const top = deck[0]
 
   const decide = (item: InboxItem, direction: Direction) => {
+    tapMedium() // gesture commit
     const destination = settings.swipeMapping[direction]
     setDecided((prev) => new Set(prev).add(item.id))
 
@@ -110,7 +112,7 @@ export function InboxScreen() {
 
       {top !== undefined && (
         <>
-          <div className="mb-3 flex items-center justify-between px-1 text-[11px] text-faint">
+          <div className="mb-3 flex items-center justify-between px-1 text-caption text-faint">
             <span className="tnum">{deck.length} to triage</span>
             <span>swipe to sort</span>
           </div>
@@ -130,7 +132,7 @@ export function InboxScreen() {
             <SwipeCard key={top.id} item={top} onDecide={(dir) => decide(top, dir)} mapping={settings.swipeMapping} />
           </div>
 
-          <div className="mt-4 grid grid-cols-4 gap-2 text-center text-[11px] text-faint">
+          <div className="mt-4 grid grid-cols-4 gap-2 text-center text-caption text-faint">
             {(['left', 'up', 'down', 'right'] as const).map((dir) => (
               <div key={dir} className="rounded-lg border border-line py-2">
                 <div aria-hidden>
@@ -222,9 +224,9 @@ function SwipeCard({
     >
       <div className="flex items-center justify-between">
         <Badge tone="neutral">{item.source}</Badge>
-        <span className="text-[11px] text-faint">{relativeTime(item.capturedAt)}</span>
+        <span className="text-caption text-faint">{relativeTime(item.capturedAt)}</span>
       </div>
-      <p className="mt-4 flex-1 text-[16px] leading-relaxed">{item.text}</p>
+      <p className="mt-4 flex-1 text-title leading-relaxed">{item.text}</p>
       {item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {item.tags.map((tag) => (

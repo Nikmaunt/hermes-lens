@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { Screen } from '@/components/Screen'
-import { Card, SectionHeader } from '@/components/primitives'
+import { Card, ConfirmDialog, SectionHeader } from '@/components/primitives'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useData } from '@/data/DataSourceProvider'
 import { getValidationLog, onValidationLogChange, type ValidationLogEntry } from '@/data/debugLog'
@@ -40,6 +40,9 @@ export function SettingsScreen() {
   const { setupPin, pinConfigured } = useAuth()
   const snackbar = useSnackbar()
   const [showToken, setShowToken] = useState(false)
+  const [confirm, setConfirm] = useState<
+    { kind: 'remove-pin' } | { kind: 'discard-dead-letter'; id: string } | null
+  >(null)
   const [deadLetters, setDeadLetters] = useState<DeadLetter[]>([])
   const [validationLog, setValidationLog] = useState<readonly ValidationLogEntry[]>(
     getValidationLog(),
@@ -102,6 +105,10 @@ export function SettingsScreen() {
   const discardDeadLetter = async (id: string) => {
     await queue.discardDeadLetter(id)
     snackbar.show({ message: 'Action discarded' })
+  }
+
+  const removePin = () => {
+    void clearPin(preferencesKV).then(() => window.location.reload())
   }
 
   const toggleLock = async (enabled: boolean) => {
@@ -189,7 +196,7 @@ export function SettingsScreen() {
                   {showToken ? 'hide' : 'show'}
                 </button>
               </div>
-              <span className="mt-1 block text-[11px] text-faint">
+              <span className="mt-1 block text-caption text-faint">
                 Stored in Android Keystore-backed encrypted storage, on-device only. Never
                 logged, never leaves the Tailscale network.
               </span>
@@ -207,7 +214,7 @@ export function SettingsScreen() {
                 ? 'All actions synced'
                 : `${pendingCount} action${pendingCount === 1 ? '' : 's'} pending`}
             </div>
-            <div className="mt-0.5 text-[11px] text-faint">
+            <div className="mt-0.5 text-caption text-faint">
               captures, triage and flag requests made while offline
             </div>
           </div>
@@ -247,7 +254,7 @@ export function SettingsScreen() {
                   </option>
                 ))}
             </select>
-            <p className="mt-2 text-[11px] text-faint">
+            <p className="mt-2 text-caption text-faint">
               Account calendars (Google, Samsung…) upload event titles to that provider's
               cloud. The local Hermes calendar never leaves the phone.
             </p>
@@ -262,7 +269,7 @@ export function SettingsScreen() {
             {deadLetters.map((dead) => (
               <div key={dead.item.id} className="px-4 py-3">
                 <div className="text-sm">{describeMutation(dead.item)}</div>
-                <div className="mt-0.5 text-[11px] text-faint">
+                <div className="mt-0.5 text-caption text-faint">
                   {dead.reason} · {relativeTime(dead.failedAt)}
                 </div>
                 <div className="mt-2 flex gap-2">
@@ -273,7 +280,7 @@ export function SettingsScreen() {
                     Retry
                   </button>
                   <button
-                    onClick={() => void discardDeadLetter(dead.item.id)}
+                    onClick={() => setConfirm({ kind: 'discard-dead-letter', id: dead.item.id })}
                     className="text-danger rounded-full border border-line px-3 py-1.5 text-xs font-medium active:bg-raised"
                   >
                     Discard
@@ -296,7 +303,7 @@ export function SettingsScreen() {
         <div className="flex items-center justify-between px-4 py-3.5">
           <div>
             <div className="text-sm font-medium">PIN</div>
-            <div className="mt-0.5 text-[11px] text-faint">
+            <div className="mt-0.5 text-caption text-faint">
               {pinConfigured ? 'configured' : 'not set'}
             </div>
           </div>
@@ -309,9 +316,7 @@ export function SettingsScreen() {
             </button>
             {pinConfigured && !settings.appLock && (
               <button
-                onClick={() => {
-                  void clearPin(preferencesKV).then(() => window.location.reload())
-                }}
+                onClick={() => setConfirm({ kind: 'remove-pin' })}
                 className="text-danger rounded-full border border-line px-3 py-1.5 text-xs font-medium active:bg-raised"
               >
                 Remove
@@ -319,6 +324,12 @@ export function SettingsScreen() {
             )}
           </div>
         </div>
+        <ToggleRow
+          label="Hide widget details when locked"
+          hint="home-screen widget shows no counts or deadlines while app lock is on"
+          checked={settings.widgetHideDetails}
+          onChange={(v) => update({ widgetHideDetails: v })}
+        />
       </Card>
 
       <SectionHeader>Appearance</SectionHeader>
@@ -368,30 +379,48 @@ export function SettingsScreen() {
             {validationLog.map((entry, i) => (
               <div key={`${entry.at}-${i}`} className="px-4 py-3">
                 <div className="font-mono text-xs">{entry.path}</div>
-                <div className="mt-0.5 text-[11px] text-faint">{relativeTime(entry.at)}</div>
+                <div className="mt-0.5 text-caption text-faint">{relativeTime(entry.at)}</div>
                 <ul className="mt-1 space-y-0.5">
                   {entry.issues.slice(0, 5).map((issue, j) => (
-                    <li key={j} className="font-mono text-[11px] text-warn">
+                    <li key={j} className="font-mono text-caption text-warn">
                       {issue}
                     </li>
                   ))}
                   {entry.issues.length > 5 && (
-                    <li className="text-[11px] text-faint">+{entry.issues.length - 5} more</li>
+                    <li className="text-caption text-faint">+{entry.issues.length - 5} more</li>
                   )}
                 </ul>
               </div>
             ))}
           </Card>
-          <p className="mt-2 px-1 text-[11px] text-faint">
+          <p className="mt-2 px-1 text-caption text-faint">
             The agent answered, but the payload didn't match the contract. In-memory only,
             cleared on restart.
           </p>
         </>
       )}
 
-      <p className="mt-8 text-center text-[11px] text-faint">
+      <p className="mt-8 text-center text-caption text-faint">
         Hermes Lens · private build · no telemetry, ever
       </p>
+
+      {confirm !== null && (
+        <ConfirmDialog
+          title={confirm.kind === 'remove-pin' ? 'Remove the PIN?' : 'Discard this action?'}
+          body={
+            confirm.kind === 'remove-pin'
+              ? 'Sensitive memory and app lock will have no PIN fallback until you set a new one.'
+              : 'The action was rejected by the agent and will be dropped for good — it never reached the server.'
+          }
+          confirmLabel={confirm.kind === 'remove-pin' ? 'Remove PIN' : 'Discard'}
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => {
+            if (confirm.kind === 'remove-pin') removePin()
+            else void discardDeadLetter(confirm.id)
+            setConfirm(null)
+          }}
+        />
+      )}
 
       {calendarExplainer && (
         <div className="bg-bg/95 fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 backdrop-blur-sm">
@@ -443,7 +472,7 @@ function ToggleRow({
     <div className="flex items-center justify-between px-4 py-3.5">
       <div>
         <div className="text-sm font-medium">{label}</div>
-        <div className="mt-0.5 text-[11px] text-faint">{hint}</div>
+        <div className="mt-0.5 text-caption text-faint">{hint}</div>
       </div>
       <button
         role="switch"

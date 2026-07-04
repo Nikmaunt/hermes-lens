@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useCapture } from '@/hooks/mutations'
+import { tapMedium } from '@/lib/haptics'
 import { useVoiceCapture } from './voice'
 
 const QUICK_TAGS = ['idea', 'todo', 'polish', 'novel', 'money', 'apartment'] as const
@@ -46,6 +47,7 @@ export function CaptureScreen() {
   const submit = () => {
     const trimmed = text.trim()
     if (trimmed === '' || capture.isPending) return
+    tapMedium() // capture committed
     // Optimistic: clear instantly, report async result via snackbar.
     setText('')
     setTags([])
@@ -78,7 +80,7 @@ export function CaptureScreen() {
         placeholder="What's on your mind?"
         rows={5}
         autoFocus
-        className="w-full resize-none rounded-(--radius-card) border border-line bg-surface p-4 text-[15px] leading-relaxed outline-none placeholder:text-faint focus:border-accent"
+        className="w-full resize-none rounded-(--radius-card) border border-line bg-surface p-4 text-body leading-relaxed outline-none placeholder:text-faint focus:border-accent"
       />
 
       {voice.state === 'recording' && (
@@ -139,7 +141,7 @@ export function CaptureScreen() {
         <button
           onClick={submit}
           disabled={text.trim() === ''}
-          className="bg-accent text-accent-ink flex-1 rounded-(--radius-card) py-3.5 text-[15px] font-semibold transition-opacity active:opacity-80 disabled:opacity-30"
+          className="bg-accent text-accent-ink flex-1 rounded-(--radius-card) py-3.5 text-body font-semibold transition-opacity active:opacity-80 disabled:opacity-30"
         >
           Send to Hermes
         </button>
@@ -158,7 +160,7 @@ export function CaptureScreen() {
           </button>
         )}
       </div>
-      <p className="mt-3 text-center text-[11px] text-faint">
+      <p className="mt-3 text-center text-caption text-faint">
         Lands in the agent's inbox. Works offline — queued captures sync on reconnect.
       </p>
     </Screen>

@@ -80,7 +80,19 @@ function Shell() {
 
 function Root() {
   const { ready, settings } = useSettings()
-  if (!ready) return null // one-frame gate while Preferences load
+
+  // Fade out the branded HTML splash (index.html) once real UI can paint —
+  // the gap between the native splash and first React render is never blank.
+  useEffect(() => {
+    if (!ready) return
+    const splash = document.getElementById('splash')
+    if (splash === null) return
+    splash.style.opacity = '0'
+    const timer = setTimeout(() => splash.remove(), 300)
+    return () => clearTimeout(timer)
+  }, [ready])
+
+  if (!ready) return null // splash stays visible while Preferences load
   // No data source chosen yet: demo data must never be silently active (F1).
   if (!settings.configured) return <FirstRunScreen />
   return (
