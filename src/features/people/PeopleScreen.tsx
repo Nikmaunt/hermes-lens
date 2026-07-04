@@ -8,6 +8,7 @@ import {
   PeopleSkeleton,
   StaleBanner,
 } from '@/components/primitives'
+import { MessageCircleIcon, UsersIcon } from '@/components/icons'
 import { usePeople } from '@/hooks/queries'
 import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDate, relativeTime } from '@/lib/dates'
@@ -30,7 +31,7 @@ export function PeopleScreen() {
         )}
         {data !== undefined && data.people.length === 0 && (
           <EmptyState
-            icon="👥"
+            icon={<UsersIcon size={30} />}
             title="Nobody here yet"
             hint="Person cards grow out of your conversations and notes as the agent meets people with you."
           />
@@ -44,7 +45,9 @@ export function PeopleScreen() {
                   <div className="text-title font-semibold tracking-tight">{person.name}</div>
                   <div className="mt-0.5 text-label text-faint">{person.relation}</div>
                 </div>
-                <Badge tone="neutral">🗣 {person.preferredLanguage}</Badge>
+                <Badge tone="neutral">
+                  <MessageCircleIcon size={11} /> {person.preferredLanguage}
+                </Badge>
               </div>
               <p className="mt-2 text-body-sm leading-snug text-muted">{person.context}</p>
 

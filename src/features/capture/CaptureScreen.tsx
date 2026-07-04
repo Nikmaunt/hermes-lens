@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import { useSnackbar } from '@/components/SnackbarProvider'
+import { MicIcon, ShareIcon } from '@/components/icons'
 import { useCapture } from '@/hooks/mutations'
 import { tapMedium } from '@/lib/haptics'
 import { useVoiceCapture } from './voice'
@@ -18,9 +19,13 @@ export function CaptureScreen() {
   const snackbar = useSnackbar()
   const location = useLocation()
   const navigate = useNavigate()
-  const voice = useVoiceCapture((spoken) => {
-    setText((prev) => (prev.trim() === '' ? spoken : `${prev.trimEnd()}\n${spoken}`))
-  })
+  const voice = useVoiceCapture(
+    (spoken) => {
+      setText((prev) => (prev.trim() === '' ? spoken : `${prev.trimEnd()}\n${spoken}`))
+    },
+    (notice) => snackbar.show({ message: notice }),
+  )
+  const voiceLive = voice.state === 'starting' || voice.state === 'listening'
 
   // Text arriving from the Android share sheet prefills the note for review —
   // nothing is sent until the user confirms with the normal Send button.
@@ -69,7 +74,7 @@ export function CaptureScreen() {
     <Screen title="Capture">
       {fromShare && (
         <div className="bg-accent-dim text-accent mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
-          <span aria-hidden>⇪</span>
+          <ShareIcon size={14} className="shrink-0" />
           <span>Shared text — review, tag and send to Hermes</span>
         </div>
       )}
@@ -80,14 +85,14 @@ export function CaptureScreen() {
         placeholder="What's on your mind?"
         rows={5}
         autoFocus
-        className="w-full resize-none rounded-(--radius-card) border border-line bg-surface p-4 text-body leading-relaxed outline-none placeholder:text-faint focus:border-accent"
+        className="w-full resize-none rounded-(--radius-card) border border-line bg-surface p-4 text-body leading-relaxed outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
       />
 
-      {voice.state === 'recording' && (
+      {voiceLive && (
         <div className="border-accent/40 bg-accent-dim mt-3 rounded-lg border px-3 py-2">
           <div className="text-accent flex items-center gap-2 text-xs font-medium">
             <span className="bg-danger inline-block h-2 w-2 animate-pulse rounded-full" aria-hidden />
-            Listening — tap the mic to stop
+            {voice.state === 'starting' ? 'Starting the recognizer…' : 'Listening — tap the mic to stop'}
           </div>
           {voice.partial !== '' && (
             <div className="mt-1 text-sm text-muted" aria-live="polite">
@@ -141,22 +146,22 @@ export function CaptureScreen() {
         <button
           onClick={submit}
           disabled={text.trim() === ''}
-          className="bg-accent text-accent-ink flex-1 rounded-(--radius-card) py-3.5 text-body font-semibold transition-opacity active:opacity-80 disabled:opacity-30"
+          className="bg-accent text-accent-ink flex-1 rounded-(--radius-card) py-3.5 text-body font-semibold transition-colors active:opacity-80 disabled:bg-raised disabled:text-faint"
         >
           Send to Hermes
         </button>
         {voice.state !== 'unavailable' && (
           <button
-            onClick={() => (voice.state === 'recording' ? voice.stop() : void voice.start())}
-            aria-label={voice.state === 'recording' ? 'Stop dictation' : 'Dictate a note'}
-            aria-pressed={voice.state === 'recording'}
-            className={`w-14 rounded-(--radius-card) border text-xl transition-colors ${
-              voice.state === 'recording'
+            onClick={() => (voiceLive ? voice.stop() : void voice.start())}
+            aria-label={voiceLive ? 'Stop dictation' : 'Dictate a note'}
+            aria-pressed={voiceLive}
+            className={`flex w-14 items-center justify-center rounded-(--radius-card) border transition-colors ${
+              voiceLive
                 ? 'border-danger bg-danger-dim text-danger'
                 : 'border-line bg-surface text-muted active:bg-raised'
             }`}
           >
-            {voice.state === 'recording' ? '■' : '🎤'}
+            <MicIcon size={22} className={voice.state === 'listening' ? 'animate-pulse' : ''} />
           </button>
         )}
       </div>

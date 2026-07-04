@@ -1,20 +1,38 @@
 import { useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
+import {
+  FileTextIcon,
+  FlameIcon,
+  FolderIcon,
+  GraphIcon,
+  InboxIcon,
+  LanguagesIcon,
+  RadioIcon,
+  ScaleIcon,
+  SettingsIcon,
+  UsersIcon,
+  type IconComponent,
+} from '@/components/icons'
 import { useData } from '@/data/DataSourceProvider'
 import { useInbox } from '@/hooks/queries'
 
-const ITEMS = [
-  { to: '/inbox', icon: '📥', label: 'Inbox', hint: 'swipe triage' },
-  { to: '/projects', icon: '🗂', label: 'Projects', hint: 'status & next actions' },
-  { to: '/people', icon: '👥', label: 'People', hint: 'context & agreements' },
-  { to: '/documents', icon: '📄', label: 'Documents & Money', hint: 'renewals, spend' },
-  { to: '/decisions', icon: '⚖️', label: 'Decision Log', hint: 'why I chose what' },
-  { to: '/habits', icon: '🔥', label: 'Habits', hint: 'streaks & heatmap' },
-  { to: '/polish', icon: '🇵🇱', label: 'Polish words', hint: 'daily flashcards' },
-  { to: '/memory/map', icon: '🕸', label: 'Memory Map', hint: 'what the agent knows' },
-  { to: '/status', icon: '🛰', label: 'Agent Status', hint: 'gateway, cron, backup' },
-  { to: '/settings', icon: '⚙️', label: 'Settings', hint: 'source, lock, theme' },
-] as const
+const ITEMS: readonly {
+  to: string
+  icon: IconComponent
+  label: string
+  hint: string
+}[] = [
+  { to: '/inbox', icon: InboxIcon, label: 'Inbox', hint: 'swipe triage' },
+  { to: '/projects', icon: FolderIcon, label: 'Projects', hint: 'status & next actions' },
+  { to: '/people', icon: UsersIcon, label: 'People', hint: 'context & agreements' },
+  { to: '/documents', icon: FileTextIcon, label: 'Documents & Money', hint: 'renewals, spend' },
+  { to: '/decisions', icon: ScaleIcon, label: 'Decision Log', hint: 'why I chose what' },
+  { to: '/habits', icon: FlameIcon, label: 'Habits', hint: 'streaks & heatmap' },
+  { to: '/polish', icon: LanguagesIcon, label: 'Polish words', hint: 'daily flashcards' },
+  { to: '/memory/map', icon: GraphIcon, label: 'Memory Map', hint: 'what the agent knows' },
+  { to: '/status', icon: RadioIcon, label: 'Agent Status', hint: 'gateway, cron, backup' },
+  { to: '/settings', icon: SettingsIcon, label: 'Settings', hint: 'source, lock, theme' },
+]
 
 export function MoreScreen() {
   const navigate = useNavigate()
@@ -31,7 +49,9 @@ export function MoreScreen() {
             onClick={() => void navigate(item.to)}
             className="relative rounded-(--radius-card) border border-line bg-surface p-4 text-left transition-colors active:bg-raised"
           >
-            <div className="text-xl">{item.icon}</div>
+            <div className="text-muted">
+              <item.icon size={22} />
+            </div>
             <div className="mt-2 text-sm font-semibold">{item.label}</div>
             <div className="mt-0.5 text-caption text-faint">{item.hint}</div>
             {item.to === '/inbox' && inboxCount > 0 && (

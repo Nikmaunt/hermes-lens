@@ -8,6 +8,7 @@ import {
   HabitsSkeleton,
   StaleBanner,
 } from '@/components/primitives'
+import { FlameIcon } from '@/components/icons'
 import { useHabits } from '@/hooks/queries'
 import { addDays, parseIsoDate, toIsoDate } from '@/lib/dates'
 import { bestStreak, completionRate, currentStreak } from '@/lib/streaks'
@@ -31,7 +32,7 @@ export function HabitsScreen() {
         )}
         {data !== undefined && data.habits.length === 0 && (
           <EmptyState
-            icon="🔥"
+            icon={<FlameIcon size={30} />}
             title="No habits tracked yet"
             hint="The agent starts a card for every routine it sees you repeat — nothing to set up here."
           />
@@ -56,10 +57,10 @@ export function HabitsScreen() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="tnum text-xl font-semibold tracking-tight">
+                    <div className="tnum flex items-center justify-end gap-1 text-xl font-semibold tracking-tight">
                       {streak}
-                      <span className="ml-0.5 text-sm" aria-hidden>
-                        🔥
+                      <span className="text-accent" aria-hidden>
+                        <FlameIcon size={16} />
                       </span>
                     </div>
                     <div className="text-micro text-faint">day streak</div>

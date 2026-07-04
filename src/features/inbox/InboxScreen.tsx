@@ -8,6 +8,15 @@ import {
   StaleBanner,
 } from '@/components/primitives'
 import { useSnackbar } from '@/components/SnackbarProvider'
+import {
+  ArchiveIcon,
+  DiamondIcon,
+  SparklesIcon,
+  SquareCheckIcon,
+  StickyNoteIcon,
+  TrashIcon,
+  type IconComponent,
+} from '@/components/icons'
 import { useInbox } from '@/hooks/queries'
 import { useTriage } from '@/hooks/mutations'
 import { relativeTime } from '@/lib/dates'
@@ -19,12 +28,12 @@ import type { SwipeMapping } from '@/settings/settings'
 const SWIPE_THRESHOLD_PX = 90
 const UNDO_WINDOW_MS = 5000
 
-const DESTINATION_META: Record<TriageDestination, { label: string; icon: string }> = {
-  note: { label: 'Note', icon: '🗒' },
-  task: { label: 'Task', icon: '☑' },
-  memory: { label: 'Memory', icon: '◈' },
-  archive: { label: 'Archive', icon: '🗄' },
-  trash: { label: 'Trash', icon: '🗑' },
+const DESTINATION_META: Record<TriageDestination, { label: string; icon: IconComponent }> = {
+  note: { label: 'Note', icon: StickyNoteIcon },
+  task: { label: 'Task', icon: SquareCheckIcon },
+  memory: { label: 'Memory', icon: DiamondIcon },
+  archive: { label: 'Archive', icon: ArchiveIcon },
+  trash: { label: 'Trash', icon: TrashIcon },
 }
 
 type Direction = keyof SwipeMapping
@@ -107,7 +116,11 @@ export function InboxScreen() {
         />
       )}
       {!isLoading && data !== undefined && deck.length === 0 && (
-        <EmptyState icon="🌤" title="Inbox zero" hint="Every note has found its place." />
+        <EmptyState
+          icon={<SparklesIcon size={30} />}
+          title="Inbox zero"
+          hint="Every note has found its place."
+        />
       )}
 
       {top !== undefined && (
@@ -133,15 +146,18 @@ export function InboxScreen() {
           </div>
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center text-caption text-faint">
-            {(['left', 'up', 'down', 'right'] as const).map((dir) => (
-              <div key={dir} className="rounded-lg border border-line py-2">
-                <div aria-hidden>
-                  {dir === 'left' ? '←' : dir === 'right' ? '→' : dir === 'up' ? '↑' : '↓'}{' '}
-                  {DESTINATION_META[settings.swipeMapping[dir]].icon}
+            {(['left', 'up', 'down', 'right'] as const).map((dir) => {
+              const DestIcon = DESTINATION_META[settings.swipeMapping[dir]].icon
+              return (
+                <div key={dir} className="rounded-lg border border-line py-2">
+                  <div className="flex items-center justify-center gap-1" aria-hidden>
+                    {dir === 'left' ? '←' : dir === 'right' ? '→' : dir === 'up' ? '↑' : '↓'}
+                    <DestIcon size={13} />
+                  </div>
+                  <div className="mt-0.5">{DESTINATION_META[settings.swipeMapping[dir]].label}</div>
                 </div>
-                <div className="mt-0.5">{DESTINATION_META[settings.swipeMapping[dir]].label}</div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </>
       )}
@@ -237,8 +253,12 @@ function SwipeCard({
         </div>
       )}
       {direction !== null && leaving === null && (
-        <div className="bg-accent-dim text-accent absolute top-3 left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 text-sm font-bold">
-          {DESTINATION_META[mapping[direction]].icon} {DESTINATION_META[mapping[direction]].label}
+        <div className="bg-accent-dim text-accent absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold whitespace-nowrap">
+          {(() => {
+            const DestIcon = DESTINATION_META[mapping[direction]].icon
+            return <DestIcon size={15} />
+          })()}
+          {DESTINATION_META[mapping[direction]].label}
         </div>
       )}
     </div>

@@ -50,7 +50,7 @@ export function FirstRunScreen() {
               autoCapitalize="none"
               autoCorrect="off"
               autoFocus
-              className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent"
+              className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
             />
           </label>
           <label className="block">
@@ -62,7 +62,7 @@ export function FirstRunScreen() {
               placeholder="paste the static token"
               autoCapitalize="none"
               autoCorrect="off"
-              className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent"
+              className="w-full rounded-lg border border-line bg-raised px-3 py-2.5 text-sm outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
             />
             <span className="mt-1 block text-caption text-faint">
               Stored in Android Keystore-backed encrypted storage. Never logged, never leaves the

@@ -2,6 +2,14 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { relativeTime } from '@/lib/dates'
 import type { QueryErrorKind } from '@/hooks/useCachedQuery'
+import {
+  CircleAlertIcon,
+  ClockIcon,
+  KeyIcon,
+  TriangleAlertIcon,
+  WifiOffIcon,
+  type IconComponent,
+} from '@/components/icons'
 
 export function Card({
   children,
@@ -150,10 +158,10 @@ export function PeopleSkeleton({ rows = 3 }: { rows?: number }) {
   )
 }
 
-export function EmptyState({ icon, title, hint }: { icon: string; title: string; hint?: string }) {
+export function EmptyState({ icon, title, hint }: { icon: ReactNode; title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center gap-2 py-16 text-center">
-      <div className="text-3xl opacity-60">{icon}</div>
+      <div className="text-faint opacity-80">{icon}</div>
       <div className="text-sm font-medium text-muted">{title}</div>
       {hint !== undefined && <div className="max-w-60 text-xs text-faint">{hint}</div>}
     </div>
@@ -161,34 +169,34 @@ export function EmptyState({ icon, title, hint }: { icon: string; title: string;
 }
 
 /** Per-error-kind copy so the user can tell VPN-off from bad-token (F1/F4). */
-const errorCopy: Record<QueryErrorKind, { icon: string; title: string; hint: string }> = {
+const errorCopy: Record<QueryErrorKind, { icon: IconComponent; title: string; hint: string }> = {
   timeout: {
-    icon: '⏱',
+    icon: ClockIcon,
     title: 'Agent not answering',
     hint: 'The Tailscale route looks down — check that the VPN is on and the host is awake.',
   },
   network: {
-    icon: '📡',
+    icon: WifiOffIcon,
     title: "Can't reach the agent",
     hint: 'No route to the agent. Check connectivity and the base URL in Settings.',
   },
   auth: {
-    icon: '🔑',
+    icon: KeyIcon,
     title: 'Agent rejected the token',
     hint: 'The bearer token is wrong or was revoked. Update it in Settings.',
   },
   server: {
-    icon: '⚠️',
+    icon: TriangleAlertIcon,
     title: 'Agent error',
     hint: 'The agent answered with an error. Check its logs on the VPS.',
   },
   invalid: {
-    icon: '🧩',
+    icon: CircleAlertIcon,
     title: 'Unexpected response',
     hint: 'The payload failed validation — details under Settings → Debug.',
   },
   unknown: {
-    icon: '📡',
+    icon: WifiOffIcon,
     title: 'Something went wrong',
     hint: 'Unexpected failure while loading.',
   },
@@ -205,9 +213,12 @@ export function ErrorState({
 }) {
   const navigate = useNavigate()
   const copy = kind != null ? errorCopy[kind] : null
+  const Icon = copy?.icon ?? WifiOffIcon
   return (
     <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <div className="text-3xl opacity-60">{copy?.icon ?? '📡'}</div>
+      <div className="text-faint opacity-80">
+        <Icon size={30} />
+      </div>
       <div className="text-sm font-medium text-muted">
         {copy?.title ?? message ?? 'Agent unreachable and no cached data yet'}
       </div>
@@ -285,7 +296,7 @@ export function StaleBanner({ since }: { since: string | null }) {
   if (since === null) return null
   return (
     <div className="mb-3 flex items-center gap-2 rounded-lg bg-warn-dim px-3 py-2 text-xs text-warn">
-      <span aria-hidden>⚠︎</span>
+      <TriangleAlertIcon size={14} className="shrink-0" />
       <span>
         Agent unreachable — showing data from {relativeTime(since)} ({new Date(since).toLocaleString()})
       </span>

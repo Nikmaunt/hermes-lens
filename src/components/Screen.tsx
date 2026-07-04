@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router'
+import { ArrowLeftIcon, SearchIcon } from '@/components/icons'
 import { useSettings } from '@/settings/SettingsProvider'
 
 interface ScreenProps {
@@ -28,7 +29,7 @@ export function Screen({ title, children, back = false, actions, noSearch = fals
             onClick={() => void navigate(-1)}
             className="-ml-1 flex h-8 w-8 items-center justify-center rounded-full text-muted active:bg-raised"
           >
-            ←
+            <ArrowLeftIcon size={18} />
           </button>
         )}
         <h1 className="flex-1 truncate text-headline font-semibold tracking-tight">
@@ -46,7 +47,7 @@ export function Screen({ title, children, back = false, actions, noSearch = fals
             onClick={() => void navigate('/search')}
             className="flex h-8 w-8 items-center justify-center rounded-full text-muted active:bg-raised"
           >
-            ⌕
+            <SearchIcon size={18} />
           </button>
         )}
       </header>

@@ -8,6 +8,7 @@ import {
   SectionHeader,
   StaleBanner,
 } from '@/components/primitives'
+import { TriangleAlertIcon } from '@/components/icons'
 import { useStatus } from '@/hooks/queries'
 import { relativeTime } from '@/lib/dates'
 
@@ -75,7 +76,9 @@ export function StatusScreen() {
             <SectionHeader>Backup</SectionHeader>
             <Card>
               {data.lastBackup === null ? (
-                <div className="text-danger text-sm font-medium">No backup recorded ⚠</div>
+                <div className="text-danger flex items-center gap-1.5 text-sm font-medium">
+                  No backup recorded <TriangleAlertIcon size={14} />
+                </div>
               ) : (
                 <div className="flex items-center justify-between">
                   <div>

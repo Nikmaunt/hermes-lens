@@ -9,6 +9,7 @@ import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDay, formatTime, toIsoDate } from '@/lib/dates'
 import { EventCategory, type TimelineEvent } from '@/schemas'
 import { CATEGORY_META } from '@/lib/categoryMeta'
+import { WavesIcon } from '@/components/icons'
 
 function groupByDay(events: TimelineEvent[]): [string, TimelineEvent[]][] {
   const groups = new Map<string, TimelineEvent[]>()
@@ -84,7 +85,11 @@ export function TimelineScreen() {
           />
         )}
         {!isLoading && error === null && events.length === 0 && (
-          <EmptyState icon="🌊" title="No events here" hint="Try a different category filter." />
+          <EmptyState
+            icon={<WavesIcon size={30} />}
+            title="No events here"
+            hint="Try a different category filter."
+          />
         )}
         {groupByDay(events).map(([day, dayEvents]) => (
           <section key={day}>
@@ -92,10 +97,12 @@ export function TimelineScreen() {
               {formatDay(day)}
             </h2>
             <div>
-              {dayEvents.map((event) => (
+              {dayEvents.map((event) => {
+                const CategoryIcon = CATEGORY_META[event.category].icon
+                return (
                 <div key={event.id} data-item-id={event.id} className="flex gap-3 border-b border-line py-3 last:border-0">
-                  <span className="pt-0.5 text-sm" aria-hidden>
-                    {CATEGORY_META[event.category].icon}
+                  <span className="pt-0.5 text-faint" aria-hidden>
+                    <CategoryIcon size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm leading-snug font-medium">{event.title}</div>
@@ -107,7 +114,8 @@ export function TimelineScreen() {
                   </div>
                   <span className="tnum pt-0.5 text-caption text-faint">{formatTime(event.at)}</span>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </section>
         ))}

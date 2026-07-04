@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { ChevronRightIcon, KeyIcon } from '@/components/icons'
 import { isAuthFailed, onAuthFailureChange } from '@/data/authState'
 
 /**
@@ -20,9 +21,9 @@ export function AuthBanner() {
       className="bg-danger-dim text-danger fixed inset-x-0 z-30 mx-auto flex w-full max-w-lg items-center gap-2 px-4 py-2.5 text-left text-xs font-medium backdrop-blur-md"
       style={{ bottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}
     >
-      <span aria-hidden>🔑</span>
+      <KeyIcon size={14} className="shrink-0" />
       <span className="flex-1">Agent rejected the token — tap to fix it in Settings</span>
-      <span aria-hidden>→</span>
+      <ChevronRightIcon size={14} className="shrink-0" />
     </button>
   )
 }

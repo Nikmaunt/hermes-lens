@@ -7,6 +7,7 @@ import {
   SectionHeader,
   StaleBanner,
 } from '@/components/primitives'
+import { SparklesIcon } from '@/components/icons'
 import { preferencesKV } from '@/data/kv'
 import { usePolishWords } from '@/hooks/queries'
 import { toIsoDate } from '@/lib/dates'
@@ -111,7 +112,7 @@ export function PolishScreen() {
             <button
               onClick={startSession}
               disabled={dueWords.length === 0}
-              className="bg-accent text-accent-ink mt-4 w-full rounded-(--radius-card) py-3 text-body font-semibold active:opacity-80 disabled:opacity-30"
+              className="bg-accent text-accent-ink mt-4 w-full rounded-(--radius-card) py-3 text-body font-semibold active:opacity-80 disabled:bg-raised disabled:text-faint"
             >
               {dueWords.length === 0 ? 'All caught up ✓' : 'Start review'}
             </button>
@@ -136,7 +137,9 @@ export function PolishScreen() {
 
       {session !== null && current === undefined && (
         <Card className="py-10 text-center">
-          <div className="text-3xl">🎉</div>
+          <div className="text-accent flex justify-center">
+            <SparklesIcon size={30} />
+          </div>
           <div className="mt-2 text-sm font-semibold">Session complete</div>
           <div className="mt-1 text-xs text-faint">{reviewedToday} reviews today</div>
           <button

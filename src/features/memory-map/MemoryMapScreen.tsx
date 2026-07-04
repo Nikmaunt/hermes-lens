@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'r
 import { useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import { EmptyState, ErrorState, ListSkeleton, StaleBanner } from '@/components/primitives'
+import { GraphIcon } from '@/components/icons'
 import { useMemoryItems } from '@/hooks/queries'
 import type { MemoryCategory, MemoryItem } from '@/schemas'
 
@@ -153,7 +154,7 @@ export function MemoryMapScreen() {
         />
       )}
       {data !== undefined && nodes.length === 0 && (
-        <EmptyState icon="🕸" title="Memory is empty" />
+        <EmptyState icon={<GraphIcon size={30} />} title="Memory is empty" />
       )}
       {nodes.length > 0 && (
         <>

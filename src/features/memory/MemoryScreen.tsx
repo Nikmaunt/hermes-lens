@@ -11,6 +11,7 @@ import {
   StaleBanner,
 } from '@/components/primitives'
 import { FilterChip } from '@/components/FilterChip'
+import { GraphIcon } from '@/components/icons'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useMemoryItems } from '@/hooks/queries'
 import { useHighlightScroll } from '@/hooks/useHighlightScroll'
@@ -57,7 +58,7 @@ export function MemoryScreen() {
           onClick={() => void navigate('/memory/map')}
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted active:bg-raised"
         >
-          🕸
+          <GraphIcon size={18} />
         </button>
       }
     >
