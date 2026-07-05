@@ -23,7 +23,7 @@ import { NoteText } from '@/components/NoteText'
 import { preferencesKV } from '@/data/kv'
 import { useData } from '@/data/DataSourceProvider'
 import { useInbox } from '@/hooks/queries'
-import { useQueuedMutationsOf, useTriage, useUntriage } from '@/hooks/mutations'
+import { useTriage, useUntriage } from '@/hooks/mutations'
 import { relativeTime, toIsoDateTime } from '@/lib/dates'
 import { plainNoteText } from '@/lib/noteText'
 import { tapMedium } from '@/lib/haptics'
@@ -56,8 +56,7 @@ export function InboxScreen() {
   const { settings } = useSettings()
   const triage = useTriage()
   const untriage = useUntriage()
-  const { queue } = useData()
-  const queuedTriages = useQueuedMutationsOf('triage')
+  const { ds, queue } = useData()
   const snackbar = useSnackbar()
 
   // Local deck: server items minus locally-decided ones (optimistic).
@@ -165,9 +164,8 @@ export function InboxScreen() {
       return
     }
 
-    const queuedId = queuedTriages.find((m) => m.itemId === entry.itemId)?.id
     let queuedOffline = false
-    void undoAction(queue, queuedId, async () => {
+    void undoAction(queue, (m) => m.kind === 'triage' && m.source === ds.kind && m.itemId === entry.itemId, async () => {
       const res = await untriage.mutateAsync({ itemId: entry.itemId })
       queuedOffline = res.queued
       return res

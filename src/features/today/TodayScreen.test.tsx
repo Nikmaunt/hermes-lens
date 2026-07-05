@@ -162,6 +162,24 @@ describe('follow-up actions on Today', () => {
     expect(screen.getByRole('button', { name: `Done: ${title}` })).toBeInTheDocument()
   })
 
+  it('withholds the card Undo while the original request is in flight', { timeout: TEST_TIMEOUT }, async () => {
+    // An undo racing the action it cancels would answer "gone" and then lose
+    // to the late-arriving original — so Undo waits for the POST to settle.
+    await bootToToday()
+    const title = 'Send Clara the apartment photos she asked for'
+    const doneBtn = await screen.findByRole('button', { name: `Done: ${title}` }, { timeout: 5000 })
+    await userEvent.click(doneBtn)
+
+    // Syncing state is synchronous; the Undo button is not there yet.
+    await waitFor(() => expect(screen.getByText(title).className).toContain('line-through'))
+    expect(screen.queryByRole('button', { name: `Undo: ${title}` })).toBeNull()
+
+    // Once the request settles, the card offers Undo.
+    expect(
+      await screen.findByRole('button', { name: `Undo: ${title}` }, { timeout: 5000 }),
+    ).toBeInTheDocument()
+  })
+
   it('snoozes a follow-up to next Monday from the snooze menu', { timeout: TEST_TIMEOUT }, async () => {
     await bootToToday()
     const snoozeBtn = await screen.findByRole(

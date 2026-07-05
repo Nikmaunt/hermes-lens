@@ -29,7 +29,7 @@ export function HabitsScreen() {
   const snackbar = useSnackbar()
   const habitTick = useHabitTick()
   const habitUndo = useHabitUndo()
-  const { queue } = useData()
+  const { ds, queue } = useData()
   const queuedTicks = useQueuedMutationsOf('habit-tick')
   // Just-clicked ticks, bridging the gap until the refetched payload (or the
   // offline queue) carries the date. Same optimistic treatment either way.
@@ -52,13 +52,18 @@ export function HabitsScreen() {
       localTicked.has(habit.id))
 
   const undo = (habit: Habit) => {
-    const queuedId = queuedTicks.find((m) => m.itemId === habit.id && m.req.date === today)?.id
     // The pending date drops optimistically; the withdrawal or the undo
     // request settles in the background.
     setLocalTicked((prev) => without(prev, habit.id))
     setLocalUnticked((prev) => new Set(prev).add(habit.id))
-    void undoAction(queue, queuedId, () =>
-      habitUndo.mutateAsync({ itemId: habit.id, req: { date: today } }),
+    void undoAction(
+      queue,
+      (m) =>
+        m.kind === 'habit-tick' &&
+        m.source === ds.kind &&
+        m.itemId === habit.id &&
+        m.req.date === today,
+      () => habitUndo.mutateAsync({ itemId: habit.id, req: { date: today } }),
     ).then(({ gone }) => {
       if (gone) {
         // The date is already written into the habit file — the tick stands.

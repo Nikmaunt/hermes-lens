@@ -3,6 +3,7 @@ import { FollowupActionResponse, HabitTickResponse, UntriageResponse } from '@/s
 import { MemoryKV } from '../kv'
 import { MockDataSource } from '../MockDataSource'
 import undoResponsesFixture from './fixtures/undo-responses.json'
+import { toIsoDate } from '@/lib/dates'
 
 /*
  * Contract test: every fixture must survive materialization and parse through
@@ -211,7 +212,7 @@ describe('mock fixtures honor the API contract', () => {
     const habits = await fresh.getHabits()
     const habit = habits.habits.find((h) => h.id === 'habit-gym')
     expect(habit).toBeDefined()
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toIsoDate(new Date()) // local date — fixtures materialize against the local clock
     expect(habit?.completedDates).not.toContain(today)
 
     expect(await fresh.tickHabit('habit-gym', { date: today })).toEqual({
@@ -268,7 +269,7 @@ describe('mock fixtures honor the API contract', () => {
 
   it('habit undo: removes a pending tick, gone for dates already in the habit file', async () => {
     const fresh = new MockDataSource(new MemoryKV(), 0)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toIsoDate(new Date()) // local date — fixtures materialize against the local clock
     await fresh.tickHabit('habit-gym', { date: today })
 
     expect(await fresh.undoHabitTick('habit-gym', { date: today })).toEqual({

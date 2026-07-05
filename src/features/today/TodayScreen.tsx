@@ -93,7 +93,7 @@ export function TodayScreen() {
 
   const followupAction = useFollowupAction()
   const followupUndo = useFollowupUndo()
-  const { queue } = useData()
+  const { ds, queue } = useData()
   const queuedActions = useQueuedMutationsOf('followup-action')
   // Just-clicked actions, bridging the gap until the refetched payload
   // carries the server-side pendingAction (or the offline queue lists it).
@@ -106,6 +106,10 @@ export function TodayScreen() {
   // Items whose pending action was just undone: suppress the stale
   // pendingAction from the cached payload until the refetch lands.
   const [undoneIds, setUndoneIds] = useState<ReadonlySet<string>>(new Set())
+  // Items whose original request is still in flight. Undo is withheld until
+  // it settles — an undo racing the action it cancels would answer "gone"
+  // and then lose to the late-arriving original.
+  const [inflightIds, setInflightIds] = useState<ReadonlySet<string>>(new Set())
   const [snoozeMenuFor, setSnoozeMenuFor] = useState<string | null>(null)
 
   const clearLocalAction = (id: string) =>
@@ -116,12 +120,15 @@ export function TodayScreen() {
     })
 
   const undo = (fu: FollowUp) => {
-    const queuedId = queuedActions.find((m) => m.itemId === fu.id)?.id
     // The optimistic syncing state drops immediately; the queue withdrawal
     // or the undo request settles in the background.
     clearLocalAction(fu.id)
     setUndoneIds((prev) => new Set(prev).add(fu.id))
-    void undoAction(queue, queuedId, () => followupUndo.mutateAsync({ itemId: fu.id })).then(
+    void undoAction(
+      queue,
+      (m) => m.kind === 'followup-action' && m.source === ds.kind && m.itemId === fu.id,
+      () => followupUndo.mutateAsync({ itemId: fu.id }),
+    ).then(
       ({ gone }) => {
         if (gone) {
           // The agent already handled the original action — drop the card
@@ -142,9 +149,17 @@ export function TodayScreen() {
       return next
     })
     setLocalActions((prev) => new Map(prev).set(fu.id, req))
+    setInflightIds((prev) => new Set(prev).add(fu.id))
     followupAction.mutate(
       { itemId: fu.id, req },
       {
+        onSettled: () => {
+          setInflightIds((prev) => {
+            const next = new Set(prev)
+            next.delete(fu.id)
+            return next
+          })
+        },
         onSuccess: ({ gone }) => {
           if (gone) {
             setGoneIds((prev) => new Set(prev).add(fu.id))
@@ -282,13 +297,15 @@ export function TodayScreen() {
                                 ? `snoozed to ${formatDate(pending.until)}`
                                 : 'snoozed'}
                           </span>
-                          <button
-                            aria-label={`Undo: ${fu.title}`}
-                            onClick={() => undo(fu)}
-                            className="bg-raised flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
-                          >
-                            Undo
-                          </button>
+                          {!inflightIds.has(fu.id) && (
+                            <button
+                              aria-label={`Undo: ${fu.title}`}
+                              onClick={() => undo(fu)}
+                              className="bg-raised flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
+                            >
+                              Undo
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <>
