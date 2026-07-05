@@ -21,11 +21,13 @@ import {
 } from '@/components/icons'
 import { NoteText } from '@/components/NoteText'
 import { preferencesKV } from '@/data/kv'
+import { useData } from '@/data/DataSourceProvider'
 import { useInbox } from '@/hooks/queries'
-import { useTriage } from '@/hooks/mutations'
+import { useQueuedMutationsOf, useTriage, useUntriage } from '@/hooks/mutations'
 import { relativeTime, toIsoDateTime } from '@/lib/dates'
 import { plainNoteText } from '@/lib/noteText'
 import { tapMedium } from '@/lib/haptics'
+import { undoAction } from '@/lib/undo'
 import {
   appendProcessingLog,
   loadProcessingLog,
@@ -53,6 +55,9 @@ export function InboxScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useInbox()
   const { settings } = useSettings()
   const triage = useTriage()
+  const untriage = useUntriage()
+  const { queue } = useData()
+  const queuedTriages = useQueuedMutationsOf('triage')
   const snackbar = useSnackbar()
 
   // Local deck: server items minus locally-decided ones (optimistic).
@@ -141,6 +146,50 @@ export function InboxScreen() {
     })
   }
 
+  /**
+   * Undo a triage from the Processing section, whatever stage it reached:
+   * a still-delayed commit is cancelled locally, a queued mutation is
+   * withdrawn without any network call, a sent one is untriaged server-side.
+   */
+  const undoProcessing = (entry: ProcessingEntry) => {
+    const delayed = pending.current.get(entry.itemId)
+    if (delayed !== undefined) {
+      clearTimeout(delayed.timer)
+      pending.current.delete(entry.itemId)
+      setDecided((prev) => {
+        const next = new Set(prev)
+        next.delete(entry.itemId)
+        return next
+      })
+      void removeFromProcessingLog(preferencesKV, entry.itemId).then(refreshProcessing)
+      return
+    }
+
+    const queuedId = queuedTriages.find((m) => m.itemId === entry.itemId)?.id
+    let queuedOffline = false
+    void undoAction(queue, queuedId, async () => {
+      const res = await untriage.mutateAsync({ itemId: entry.itemId })
+      queuedOffline = res.queued
+      return res
+    }).then(({ gone }) => {
+      if (queuedOffline) {
+        // The undo itself is waiting for the network; the entry stays in
+        // Processing until the queue drains and the refetch settles it.
+        snackbar.show({ message: 'Offline — undo queued for sync' })
+        return
+      }
+      if (gone) snackbar.show({ message: 'Already processed by agent' })
+      // ok → the note is back in the inbox (refetch); gone → it is the
+      // agent's now. Either way the entry leaves Processing.
+      setDecided((prev) => {
+        const next = new Set(prev)
+        next.delete(entry.itemId)
+        return next
+      })
+      void removeFromProcessingLog(preferencesKV, entry.itemId).then(refreshProcessing)
+    })
+  }
+
   // Log entries whose item is hidden — either decided locally just now or
   // already absent from the server payload. Items back in the deck (e.g. a
   // dead-lettered triage) stay out of Processing.
@@ -207,7 +256,6 @@ export function InboxScreen() {
       {processingRows.length > 0 && (
         <>
           <SectionHeader>Processing</SectionHeader>
-          {/* View-only: triage has no server-side undo, so no actions here. */}
           <ul className="space-y-2 opacity-60">
             {processingRows.map((entry) => {
               const meta = DESTINATION_META[entry.destination]
@@ -223,6 +271,12 @@ export function InboxScreen() {
                     <meta.icon size={13} aria-hidden />
                     {`→ ${meta.label}`}
                   </span>
+                  <button
+                    onClick={() => undoProcessing(entry)}
+                    className="text-accent flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold active:opacity-70"
+                  >
+                    Undo
+                  </button>
                 </li>
               )
             })}
