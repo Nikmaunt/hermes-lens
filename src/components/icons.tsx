@@ -171,6 +171,8 @@ export const ArrowLeftIcon = makeIcon(
 
 export const ChevronRightIcon = makeIcon(<path d="m9 18 6-6-6-6" />)
 
+export const CheckIcon = makeIcon(<path d="M20 6 9 17l-5-5" />)
+
 export const ScrollTextIcon = makeIcon(
   <>
     <path d="M15 12h-5" />

@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
 import {
+  Badge,
   Card,
   EmptyState,
   ErrorState,
@@ -11,13 +12,15 @@ import {
   TodaySkeleton,
 } from '@/components/primitives'
 import { DueBadge, type DueTone } from '@/components/DueBadge'
-import { ChevronRightIcon, SunIcon } from '@/components/icons'
+import { CheckIcon, ChevronRightIcon, ClockIcon, SunIcon } from '@/components/icons'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useToday } from '@/hooks/queries'
+import { useFollowupAction, useQueuedMutationsOf } from '@/hooks/mutations'
 import { useSettings } from '@/settings/SettingsProvider'
-import { formatDay, formatTime } from '@/lib/dates'
+import { formatDate, formatDay, formatTime } from '@/lib/dates'
+import { snoozeNextMonday, snoozeTomorrow } from '@/lib/snooze'
 import { eventTarget } from '@/lib/eventRoute'
-import type { FollowUp } from '@/schemas'
+import type { FollowUp, FollowupActionRequest } from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
 
 const urgencyTone: Record<FollowUp['urgency'], DueTone> = {
@@ -32,6 +35,42 @@ export function TodayScreen() {
   const navigate = useNavigate()
   const snackbar = useSnackbar()
   const maskWidget = settings.appLock && settings.widgetHideDetails
+
+  const followupAction = useFollowupAction()
+  const queuedActions = useQueuedMutationsOf('followup-action')
+  // Just-clicked actions, bridging the gap until the refetched payload
+  // carries the server-side pendingAction (or the offline queue lists it).
+  const [localActions, setLocalActions] = useState<ReadonlyMap<string, FollowupActionRequest>>(
+    new Map(),
+  )
+  // Items the server reported gone: already resolved by the agent — drop
+  // them quietly, never an error.
+  const [goneIds, setGoneIds] = useState<ReadonlySet<string>>(new Set())
+  const [snoozeMenuFor, setSnoozeMenuFor] = useState<string | null>(null)
+
+  const act = (fu: FollowUp, req: FollowupActionRequest) => {
+    setSnoozeMenuFor(null)
+    setLocalActions((prev) => new Map(prev).set(fu.id, req))
+    followupAction.mutate(
+      { itemId: fu.id, req },
+      {
+        onSuccess: ({ queued, gone }) => {
+          if (gone) setGoneIds((prev) => new Set(prev).add(fu.id))
+          else if (queued) snackbar.show({ message: 'Offline — action queued for sync' })
+        },
+      },
+    )
+  }
+
+  /** Server pendingAction, queued offline mutation and a just-made tap all
+   * draw the same syncing treatment. */
+  const pendingActionFor = (
+    fu: FollowUp,
+  ): { action: 'done' | 'snooze'; until?: string | undefined } | null =>
+    fu.pendingAction ??
+    queuedActions.find((m) => m.itemId === fu.id)?.req ??
+    localActions.get(fu.id) ??
+    null
 
   // Keep the home-screen widget in sync with what the user sees.
   useEffect(() => {
@@ -81,19 +120,94 @@ export function TodayScreen() {
               <div className="px-1 py-2 text-sm text-faint">Nothing waiting on you. Rare.</div>
             )}
             <div className="space-y-2">
-              {data.followUps.map((fu) => (
-                <Card key={fu.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm leading-snug font-medium">{fu.title}</div>
-                      <div className="mt-1 truncate text-caption text-faint">{fu.source}</div>
-                    </div>
-                    {fu.dueDate !== null && (
-                      <DueBadge date={fu.dueDate} tone={urgencyTone[fu.urgency]} />
-                    )}
-                  </div>
-                </Card>
-              ))}
+              {data.followUps
+                .filter((fu) => !goneIds.has(fu.id))
+                .map((fu) => {
+                  const pending = pendingActionFor(fu)
+                  return (
+                    <Card key={fu.id} className={pending !== null ? 'opacity-60' : ''}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className={`text-sm leading-snug font-medium ${
+                              pending !== null ? 'text-muted line-through' : ''
+                            }`}
+                          >
+                            {fu.title}
+                          </div>
+                          <div className="mt-1 truncate text-caption text-faint">{fu.source}</div>
+                        </div>
+                        {fu.dueDate !== null && (
+                          <DueBadge date={fu.dueDate} tone={urgencyTone[fu.urgency]} />
+                        )}
+                      </div>
+                      {pending !== null ? (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge tone="accent">syncing</Badge>
+                          <span className="text-caption text-faint">
+                            {pending.action === 'done'
+                              ? 'marked done'
+                              : pending.until !== undefined
+                                ? `snoozed to ${formatDate(pending.until)}`
+                                : 'snoozed'}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mt-2.5 flex items-center gap-2">
+                            <button
+                              aria-label={`Done: ${fu.title}`}
+                              onClick={() => act(fu, { action: 'done' })}
+                              className="bg-ok-dim text-ok flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium active:opacity-70"
+                            >
+                              <CheckIcon size={16} aria-hidden />
+                              Done
+                            </button>
+                            <button
+                              aria-label={`Snooze: ${fu.title}`}
+                              aria-expanded={snoozeMenuFor === fu.id}
+                              onClick={() =>
+                                setSnoozeMenuFor(snoozeMenuFor === fu.id ? null : fu.id)
+                              }
+                              className="bg-raised flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
+                            >
+                              <ClockIcon size={16} aria-hidden />
+                              Snooze
+                            </button>
+                          </div>
+                          {snoozeMenuFor === fu.id && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <button
+                                onClick={() => act(fu, { action: 'snooze', until: snoozeTomorrow() })}
+                                className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"
+                              >
+                                Tomorrow
+                              </button>
+                              <button
+                                onClick={() =>
+                                  act(fu, { action: 'snooze', until: snoozeNextMonday() })
+                                }
+                                className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"
+                              >
+                                Next Monday
+                              </button>
+                              <input
+                                type="date"
+                                aria-label="Snooze until date"
+                                min={snoozeTomorrow()}
+                                onChange={(e) => {
+                                  if (e.target.value !== '')
+                                    act(fu, { action: 'snooze', until: e.target.value })
+                                }}
+                                className="border-line bg-surface h-11 rounded-full border px-3 text-sm text-muted outline-none focus:border-accent focus-visible:outline-none"
+                              />
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </Card>
+                  )
+                })}
             </div>
 
             <SectionHeader
