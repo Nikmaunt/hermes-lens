@@ -63,3 +63,13 @@ export function useReminders() {
   const { ds } = useData()
   return useCachedQuery('reminders', () => ds.getReminders())
 }
+
+export function useBriefs() {
+  const { ds } = useData()
+  return useCachedQuery('briefs', () => ds.getBriefs())
+}
+
+export function useBrief(id: string) {
+  const { ds } = useData()
+  return useCachedQuery(`brief:${id}`, () => ds.getBrief(id))
+}

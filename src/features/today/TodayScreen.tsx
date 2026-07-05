@@ -12,7 +12,10 @@ import {
   TodaySkeleton,
 } from '@/components/primitives'
 import { DueBadge, type DueTone } from '@/components/DueBadge'
-import { CheckIcon, ChevronRightIcon, ClockIcon, SunIcon } from '@/components/icons'
+import { CheckIcon, ChevronRightIcon, ClockIcon, NewspaperIcon, SunIcon } from '@/components/icons'
+import { UnreadDot } from '@/features/briefs/UnreadDot'
+import { loadReadBriefIds } from '@/features/briefs/readStore'
+import { preferencesKV } from '@/data/kv'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useToday } from '@/hooks/queries'
 import { useFollowupAction, useQueuedMutationsOf } from '@/hooks/mutations'
@@ -77,6 +80,12 @@ export function TodayScreen() {
     if (data !== undefined) void updateTodayWidget(data, maskWidget)
   }, [data, maskWidget])
 
+  // Client-only read state for the brief card's unread dot.
+  const [readBriefIds, setReadBriefIds] = useState<ReadonlySet<string>>(new Set())
+  useEffect(() => {
+    void loadReadBriefIds(preferencesKV).then(setReadBriefIds)
+  }, [data?.brief?.id])
+
   return (
     <Screen title={data !== undefined ? formatDay(data.date) : 'Today'}>
       <PullToRefresh onRefresh={refetch}>
@@ -101,6 +110,26 @@ export function TodayScreen() {
           )}
         {data !== undefined && (
           <>
+            {data.brief !== undefined && (
+              <Card
+                onClick={() => void navigate(`/briefs/${encodeURIComponent(data.brief?.id ?? '')}`)}
+                className="mb-1"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-faint" aria-hidden>
+                    <NewspaperIcon size={20} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      {!readBriefIds.has(data.brief.id) && <UnreadDot />}
+                      <span className="truncate text-sm font-semibold">{data.brief.title}</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-faint">today's brief</div>
+                  </div>
+                  <ChevronRightIcon size={13} className="shrink-0 text-faint" aria-hidden />
+                </div>
+              </Card>
+            )}
             {data.inboxCount > 0 && (
               <Card onClick={() => void navigate('/inbox')} className="mb-1">
                 <div className="flex items-center justify-between">
