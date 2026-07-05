@@ -150,7 +150,7 @@ export function SettingsScreen() {
               key={source}
               onClick={() => update({ source })}
               className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-                settings.source === source ? 'bg-surface text-ink shadow' : 'text-faint'
+                settings.source === source ? 'bg-surface text-ink shadow' : 'text-muted'
               }`}
             >
               {source === 'mock' ? 'Demo mode' : 'Agent API'}
@@ -481,13 +481,13 @@ function ToggleRow({
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`h-7 w-12 rounded-full p-1 transition-colors ${
-          checked ? 'bg-accent' : 'bg-raised'
+        className={`h-7 w-12 shrink-0 rounded-full p-1 transition-colors ${
+          checked ? 'bg-accent' : 'bg-control-track'
         }`}
       >
         <span
-          className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            checked ? 'translate-x-5' : ''
+          className={`block h-5 w-5 rounded-full shadow transition-transform ${
+            checked ? 'bg-accent-ink translate-x-5' : 'bg-control-thumb'
           }`}
         />
       </button>

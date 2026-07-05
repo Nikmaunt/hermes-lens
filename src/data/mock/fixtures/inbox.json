@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "id": "in-9",
+      "text": "--- date: 2026-07-07 time: 19:00 criticality: high category: appointment --- # Boiler inspection **Date:** Tuesday, 7 July 2026 **Time:** 19:00 ## Important ⚠️ Critical — do not miss. ## Related - [[followups]]",
+      "capturedAt": "@t-0@08:10",
+      "source": "telegram",
+      "tags": ["appointment"]
+    },
+    {
       "id": "in-1",
       "text": "Idea for the novel: the station AI hides log entries out of embarrassment, not malice",
       "capturedAt": "@t-4@23:41",

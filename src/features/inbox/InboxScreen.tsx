@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useLocation } from 'react-router'
 import { Screen } from '@/components/Screen'
 import {
   Badge,
@@ -17,6 +18,7 @@ import {
   TrashIcon,
   type IconComponent,
 } from '@/components/icons'
+import { NoteText } from '@/components/NoteText'
 import { useInbox } from '@/hooks/queries'
 import { useTriage } from '@/hooks/mutations'
 import { relativeTime } from '@/lib/dates'
@@ -63,7 +65,14 @@ export function InboxScreen() {
     }
   }, [])
 
-  const deck = (data?.items ?? []).filter((item) => !decided.has(item.id))
+  // Timeline capture events deep-link here; if the item is still untriaged
+  // it floats to the top of the deck, otherwise the tap lands on the root.
+  const location = useLocation()
+  const highlightId = (location.state as { highlightId?: string } | null)?.highlightId
+
+  const deck = (data?.items ?? [])
+    .filter((item) => !decided.has(item.id))
+    .sort((a, b) => Number(b.id === highlightId) - Number(a.id === highlightId))
   const top = deck[0]
 
   const decide = (item: InboxItem, direction: Direction) => {
@@ -242,7 +251,7 @@ function SwipeCard({
         <Badge tone="neutral">{item.source}</Badge>
         <span className="text-caption text-faint">{relativeTime(item.capturedAt)}</span>
       </div>
-      <p className="mt-4 flex-1 text-title leading-relaxed">{item.text}</p>
+      <NoteText text={item.text} className="mt-4 flex-1 overflow-hidden text-title leading-relaxed" />
       {item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {item.tags.map((tag) => (

@@ -1,0 +1,51 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dark theme control contrast > dark token table matches the reviewed snapshot 1`] = `
+{
+  "--hl-accent": "#e3b458",
+  "--hl-accent-dim": "rgba(227, 180, 88, 0.13)",
+  "--hl-accent-ink": "#14100a",
+  "--hl-bg": "#0b0d12",
+  "--hl-control-thumb": "#eef1f8",
+  "--hl-control-track": "#606e8e",
+  "--hl-danger": "#ed6a5e",
+  "--hl-danger-dim": "rgba(237, 106, 94, 0.14)",
+  "--hl-faint": "#5c6579",
+  "--hl-ink": "#e9ecf4",
+  "--hl-line": "#232a3a",
+  "--hl-muted": "#98a2b8",
+  "--hl-ok": "#57b47c",
+  "--hl-ok-dim": "rgba(87, 180, 124, 0.14)",
+  "--hl-overdue": "#cf837a",
+  "--hl-overdue-dim": "rgba(207, 131, 122, 0.16)",
+  "--hl-raised": "#1a2030",
+  "--hl-surface": "#12161f",
+  "--hl-warn": "#e2a33c",
+  "--hl-warn-dim": "rgba(226, 163, 60, 0.16)",
+}
+`;
+
+exports[`light theme control contrast > light token table matches the reviewed snapshot 1`] = `
+{
+  "--hl-accent": "#a3740f",
+  "--hl-accent-dim": "rgba(163, 116, 15, 0.12)",
+  "--hl-accent-ink": "#ffffff",
+  "--hl-bg": "#f2f3f6",
+  "--hl-control-thumb": "#ffffff",
+  "--hl-control-track": "#767e92",
+  "--hl-danger": "#cf3f34",
+  "--hl-danger-dim": "rgba(207, 63, 52, 0.1)",
+  "--hl-faint": "#9aa2b5",
+  "--hl-ink": "#191d28",
+  "--hl-line": "#e2e5ec",
+  "--hl-muted": "#5f6880",
+  "--hl-ok": "#2e7d4f",
+  "--hl-ok-dim": "rgba(46, 125, 79, 0.12)",
+  "--hl-overdue": "#a85c52",
+  "--hl-overdue-dim": "rgba(168, 92, 82, 0.12)",
+  "--hl-raised": "#e8ebf2",
+  "--hl-surface": "#ffffff",
+  "--hl-warn": "#a8690b",
+  "--hl-warn-dim": "rgba(168, 105, 11, 0.14)",
+}
+`;

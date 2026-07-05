@@ -17,6 +17,7 @@ import {
   type IconComponent,
 } from '@/components/icons'
 import { useData } from '@/data/DataSourceProvider'
+import { plainNoteText } from '@/lib/noteText'
 import type { SearchResponse, SearchResultKind } from '@/schemas'
 
 const KIND_LABELS: Record<SearchResultKind, { label: string; route: string; icon: IconComponent }> = {
@@ -126,8 +127,8 @@ export function SearchScreen() {
                         <LockIcon size={11} /> Sensitive — unlock in Memory
                       </div>
                     ) : (
-                      <div className="mt-1 line-clamp-2 text-label leading-snug text-muted">
-                        {r.snippet}
+                      <div className="mt-1 line-clamp-2 text-label leading-snug whitespace-pre-line text-muted">
+                        {plainNoteText(r.snippet)}
                       </div>
                     )}
                   </Card>

@@ -11,10 +11,12 @@ import {
   TodaySkeleton,
 } from '@/components/primitives'
 import { DueBadge, type DueTone } from '@/components/DueBadge'
-import { SunIcon } from '@/components/icons'
+import { ChevronRightIcon, SunIcon } from '@/components/icons'
+import { useSnackbar } from '@/components/SnackbarProvider'
 import { useToday } from '@/hooks/queries'
 import { useSettings } from '@/settings/SettingsProvider'
 import { formatDay, formatTime } from '@/lib/dates'
+import { eventTarget } from '@/lib/eventRoute'
 import type { FollowUp } from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
 
@@ -28,6 +30,7 @@ export function TodayScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useToday()
   const { settings } = useSettings()
   const navigate = useNavigate()
+  const snackbar = useSnackbar()
   const maskWidget = settings.appLock && settings.widgetHideDetails
 
   // Keep the home-screen widget in sync with what the user sees.
@@ -141,12 +144,31 @@ export function TodayScreen() {
               <div className="px-1 py-2 text-sm text-faint">The agent has been quiet.</div>
             )}
             <div>
-              {data.agentActivity.map((a) => (
-                <div key={a.id} className="flex gap-3 border-b border-line py-2.5 last:border-0">
-                  <span className="tnum pt-px text-caption text-faint">{formatTime(a.at)}</span>
-                  <span className="flex-1 text-sm leading-snug">{a.summary}</span>
-                </div>
-              ))}
+              {data.agentActivity.map((a) => {
+                // Today's digest rows carry no relatedId (contract), so taps
+                // land on the category's list root; agent rows explain
+                // themselves with a toast instead of a dead end.
+                const target = eventTarget(a.category)
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => {
+                      if (target === null) {
+                        snackbar.show({ message: `${a.summary} — runs privately, no detail view` })
+                        return
+                      }
+                      void navigate(target.route)
+                    }}
+                    className="active:bg-raised flex min-h-11 w-full items-start gap-3 border-b border-line py-2.5 text-left transition-colors last:border-0"
+                  >
+                    <span className="tnum pt-px text-caption text-faint">{formatTime(a.at)}</span>
+                    <span className="flex-1 text-sm leading-snug">{a.summary}</span>
+                    {target !== null && (
+                      <ChevronRightIcon size={13} className="mt-0.5 text-faint" aria-hidden />
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </>
         )}
