@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
 import {
@@ -8,16 +8,44 @@ import {
   HabitsSkeleton,
   StaleBanner,
 } from '@/components/primitives'
-import { FlameIcon } from '@/components/icons'
+import { CheckIcon, FlameIcon } from '@/components/icons'
+import { useSnackbar } from '@/components/SnackbarProvider'
 import { useHabits } from '@/hooks/queries'
+import { useHabitTick, useQueuedMutationsOf } from '@/hooks/mutations'
 import { addDays, parseIsoDate, toIsoDate } from '@/lib/dates'
 import { bestStreak, completionRate, currentStreak } from '@/lib/streaks'
+import type { Habit } from '@/schemas'
 
 const WEEKS_SHOWN = 12
 
 export function HabitsScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useHabits()
   const today = toIsoDate(new Date())
+  const snackbar = useSnackbar()
+  const habitTick = useHabitTick()
+  const queuedTicks = useQueuedMutationsOf('habit-tick')
+  // Just-clicked ticks, bridging the gap until the refetched payload (or the
+  // offline queue) carries the date. Same optimistic treatment either way.
+  const [localTicked, setLocalTicked] = useState<ReadonlySet<string>>(new Set())
+
+  const tickedToday = (habit: Habit): boolean =>
+    habit.completedDates.includes(today) ||
+    queuedTicks.some((m) => m.itemId === habit.id && m.req.date === today) ||
+    localTicked.has(habit.id)
+
+  const tick = (habit: Habit) => {
+    setLocalTicked((prev) => new Set(prev).add(habit.id))
+    habitTick.mutate(
+      { itemId: habit.id, req: { date: today } },
+      {
+        onSuccess: ({ queued, gone }) => {
+          // "gone" = the habit vanished server-side; the refetch drops the
+          // card, nothing to tell the user.
+          if (!gone && queued) snackbar.show({ message: 'Offline — tick queued for sync' })
+        },
+      },
+    )
+  }
 
   return (
     <Screen title="Habits" back>
@@ -39,9 +67,15 @@ export function HabitsScreen() {
         )}
         <div className="space-y-3">
           {data?.habits.map((habit) => {
-            const streak = currentStreak(habit.completedDates, today)
-            const best = bestStreak(habit.completedDates)
-            const rate = completionRate(habit.completedDates, habit.startedOn, today)
+            const done = tickedToday(habit)
+            // Optimistic view: a pending tick counts for streaks and the grid.
+            const completedDates =
+              done && !habit.completedDates.includes(today)
+                ? [...habit.completedDates, today]
+                : habit.completedDates
+            const streak = currentStreak(completedDates, today)
+            const best = bestStreak(completedDates)
+            const rate = completionRate(completedDates, habit.startedOn, today)
             return (
               <Card key={habit.id}>
                 <div className="flex items-center justify-between gap-3">
@@ -66,7 +100,26 @@ export function HabitsScreen() {
                     <div className="text-micro text-faint">day streak</div>
                   </div>
                 </div>
-                <HeatGrid completedDates={habit.completedDates} today={today} />
+                <HeatGrid completedDates={completedDates} today={today} />
+                {done ? (
+                  <button
+                    disabled
+                    aria-label={`Ticked today: ${habit.name}`}
+                    className="bg-ok-dim text-ok mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-full text-sm font-medium opacity-80"
+                  >
+                    <CheckIcon size={16} aria-hidden />
+                    Done today
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => tick(habit)}
+                    aria-label={`Tick today: ${habit.name}`}
+                    className="bg-accent-dim text-accent mt-3 flex h-11 w-full items-center justify-center gap-1.5 rounded-full text-sm font-medium active:opacity-70"
+                  >
+                    <CheckIcon size={16} aria-hidden />
+                    Tick today
+                  </button>
+                )}
               </Card>
             )
           })}
