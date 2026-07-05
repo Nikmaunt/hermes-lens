@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
 import { FilterChip } from '@/components/FilterChip'
 import { EmptyState, ErrorState, FeedSkeleton, StaleBanner } from '@/components/primitives'
+import { useSnackbar } from '@/components/SnackbarProvider'
 import { useData } from '@/data/DataSourceProvider'
 import { useTimeline } from '@/hooks/queries'
 import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDay, formatTime, toIsoDate } from '@/lib/dates'
+import { eventTarget } from '@/lib/eventRoute'
+import { plainNoteText } from '@/lib/noteText'
 import { EventCategory, type TimelineEvent } from '@/schemas'
 import { CATEGORY_META } from '@/lib/categoryMeta'
-import { WavesIcon } from '@/components/icons'
+import { ChevronRightIcon, WavesIcon } from '@/components/icons'
 
 function groupByDay(events: TimelineEvent[]): [string, TimelineEvent[]][] {
   const groups = new Map<string, TimelineEvent[]>()
@@ -26,6 +30,8 @@ export function TimelineScreen() {
   const [category, setCategory] = useState<EventCategory | undefined>(undefined)
   const { data, staleSince, errorKind, isLoading, error, refetch } = useTimeline(category)
   const { ds } = useData()
+  const navigate = useNavigate()
+  const snackbar = useSnackbar()
   const [older, setOlder] = useState<TimelineEvent[]>([])
   const [olderCursor, setOlderCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -99,21 +105,46 @@ export function TimelineScreen() {
             <div>
               {dayEvents.map((event) => {
                 const CategoryIcon = CATEGORY_META[event.category].icon
+                const target = eventTarget(event.category, event.relatedId)
+                const open = () => {
+                  if (target === null) {
+                    // Agent sessions have no detail view by design — say so
+                    // instead of silently ignoring the tap.
+                    snackbar.show({ message: `${event.title} — runs privately, no detail view` })
+                    return
+                  }
+                  void navigate(
+                    target.route,
+                    target.highlightId !== undefined
+                      ? { state: { highlightId: target.highlightId } }
+                      : undefined,
+                  )
+                }
                 return (
-                <div key={event.id} data-item-id={event.id} className="flex gap-3 border-b border-line py-3 last:border-0">
+                <button
+                  key={event.id}
+                  data-item-id={event.id}
+                  onClick={open}
+                  className="active:bg-raised flex min-h-11 w-full gap-3 border-b border-line py-3 text-left transition-colors last:border-0"
+                >
                   <span className="pt-0.5 text-faint" aria-hidden>
                     <CategoryIcon size={16} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm leading-snug font-medium">{event.title}</div>
                     {event.detail !== null && (
-                      <div className="mt-0.5 text-body-sm leading-snug text-muted">
-                        {event.detail}
+                      <div className="mt-0.5 text-body-sm leading-snug whitespace-pre-line text-muted">
+                        {plainNoteText(event.detail)}
                       </div>
                     )}
                   </div>
-                  <span className="tnum pt-0.5 text-caption text-faint">{formatTime(event.at)}</span>
-                </div>
+                  <span className="flex items-start gap-0.5 pt-0.5">
+                    <span className="tnum text-caption text-faint">{formatTime(event.at)}</span>
+                    {target !== null && (
+                      <ChevronRightIcon size={13} className="mt-px text-faint" aria-hidden />
+                    )}
+                  </span>
+                </button>
                 )
               })}
             </div>
