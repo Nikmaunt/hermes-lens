@@ -46,6 +46,12 @@ const PolishScreen = lazy(() =>
 const SearchScreen = lazy(() =>
   import('./features/search/SearchScreen').then((m) => ({ default: m.SearchScreen })),
 )
+const BriefsScreen = lazy(() =>
+  import('./features/briefs/BriefsScreen').then((m) => ({ default: m.BriefsScreen })),
+)
+const BriefScreen = lazy(() =>
+  import('./features/briefs/BriefScreen').then((m) => ({ default: m.BriefScreen })),
+)
 const StatusScreen = lazy(() =>
   import('./features/status/StatusScreen').then((m) => ({ default: m.StatusScreen })),
 )
@@ -114,6 +120,8 @@ function Root() {
                 <Route path="/decisions" element={<DecisionsScreen />} />
                 <Route path="/habits" element={<HabitsScreen />} />
                 <Route path="/polish" element={<PolishScreen />} />
+                <Route path="/briefs" element={<BriefsScreen />} />
+                <Route path="/briefs/:id" element={<BriefScreen />} />
                 <Route path="/search" element={<SearchScreen />} />
                 <Route path="/status" element={<StatusScreen />} />
                 <Route path="/settings" element={<SettingsScreen />} />

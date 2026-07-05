@@ -1,4 +1,5 @@
 {
+  "brief": { "id": "brief-d0-morning", "title": "Morning brief — quiet day, two things need you" },
   "followUps": [
     {
       "id": "fu-1",
@@ -34,6 +35,18 @@
       "dueDate": "@d+6",
       "source": "captured note from @d-9",
       "urgency": "soon"
+    },
+    {
+      "id": "fu-6",
+      "title": "Renew the library card before it lapses",
+      "dueDate": "@d+1",
+      "source": "email from the city library",
+      "urgency": "soon",
+      "pendingAction": {
+        "action": "snooze",
+        "until": "@d+7",
+        "requestedAt": "@t-0@08:10"
+      }
     }
   ]
 }

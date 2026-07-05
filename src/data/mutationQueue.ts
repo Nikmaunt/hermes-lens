@@ -1,4 +1,11 @@
-import type { CaptureRequest, FlagRequest, SyncAckRequest, TriageRequest } from '@/schemas'
+import type {
+  CaptureRequest,
+  FlagRequest,
+  FollowupActionRequest,
+  HabitTickRequest,
+  SyncAckRequest,
+  TriageRequest,
+} from '@/schemas'
 import type { DataSource } from './DataSource'
 import type { KV } from './kv'
 
@@ -11,6 +18,8 @@ export type QueuedMutation =
   | { id: string; kind: 'capture'; source: Source; enqueuedAt: string; req: CaptureRequest }
   | { id: string; kind: 'triage'; source: Source; enqueuedAt: string; itemId: string; req: TriageRequest }
   | { id: string; kind: 'flag'; source: Source; enqueuedAt: string; itemId: string; req: FlagRequest }
+  | { id: string; kind: 'followup-action'; source: Source; enqueuedAt: string; itemId: string; req: FollowupActionRequest }
+  | { id: string; kind: 'habit-tick'; source: Source; enqueuedAt: string; itemId: string; req: HabitTickRequest }
   | { id: string; kind: 'ack-sync'; source: Source; enqueuedAt: string; req: SyncAckRequest }
 
 /** A mutation the server permanently rejected — parked for the user to decide. */
@@ -85,9 +94,13 @@ export function createMutationQueue(kv: KV) {
   }
 
   async function send(ds: DataSource, item: QueuedMutation): Promise<void> {
+    // A 200 {status:'gone'} resolves normally — success-by-staleness, the
+    // agent already dealt with the item; only thrown errors keep or park it.
     if (item.kind === 'capture') await ds.capture(item.req)
     else if (item.kind === 'triage') await ds.triage(item.itemId, item.req)
     else if (item.kind === 'flag') await ds.flagMemory(item.itemId, item.req)
+    else if (item.kind === 'followup-action') await ds.followupAction(item.itemId, item.req)
+    else if (item.kind === 'habit-tick') await ds.tickHabit(item.itemId, item.req)
     else await ds.ackSync(item.req)
   }
 

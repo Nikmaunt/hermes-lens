@@ -7,6 +7,7 @@ import {
   GraphIcon,
   InboxIcon,
   LanguagesIcon,
+  NewspaperIcon,
   RadioIcon,
   ScaleIcon,
   SettingsIcon,
@@ -23,6 +24,7 @@ const ITEMS: readonly {
   hint: string
 }[] = [
   { to: '/inbox', icon: InboxIcon, label: 'Inbox', hint: 'swipe triage' },
+  { to: '/briefs', icon: NewspaperIcon, label: 'Briefs', hint: 'morning digests' },
   { to: '/projects', icon: FolderIcon, label: 'Projects', hint: 'status & next actions' },
   { to: '/people', icon: UsersIcon, label: 'People', hint: 'context & agreements' },
   { to: '/documents', icon: FileTextIcon, label: 'Documents & Money', hint: 'renewals, spend' },

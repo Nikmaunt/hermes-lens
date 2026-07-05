@@ -1,0 +1,44 @@
+{
+  "briefs": [
+    {
+      "id": "brief-d0-morning",
+      "date": "@d+0",
+      "title": "Morning brief — quiet day, two things need you",
+      "kind": "morning",
+      "markdown": "## Top of mind\n\n- **Rosa's lesson** is still unanswered since @d-1 — she asked to move Thursday's slot.\n- Dentist confirmation window closes **today**.\n\n## Money\n\n- FitZone charged 149 USD yesterday, as expected.\n- Nothing unusual on the shared account.\n\n## Around you\n\nThe [[driving licence]] booking portal opens new slots on Mondays at 08:00 — tomorrow morning is your best shot.",
+      "generatedAt": "@t+0@06:45"
+    },
+    {
+      "id": "brief-d0-transfer",
+      "date": "@d+0",
+      "title": "Heads-up: lease cancel window opens soon",
+      "kind": "adhoc",
+      "markdown": "The **apartment lease** enters its cancel window in under two months (@d+56).\n\n- Current rent: 3200 USD/month\n- Market check from last week: comparable flats 2900–3400 USD\n\nNo action needed today — flagging it early so the decision isn't rushed.",
+      "generatedAt": "@t+0@11:20"
+    },
+    {
+      "id": "brief-d1-morning",
+      "date": "@d-1",
+      "title": "Morning brief — gym day, one deadline moved",
+      "kind": "morning",
+      "markdown": "## Top of mind\n\n- Clara is waiting on the **apartment photos** you promised.\n- Gym session planned; last visit was @d-4.\n\n## Agent activity\n\n- Filed two captured notes into [[Projects/Apartment]].\n- Re-checked the dentist reminder — still unconfirmed.",
+      "generatedAt": "@t-1@06:45"
+    },
+    {
+      "id": "brief-d2-morning",
+      "date": "@d-2",
+      "title": "Morning brief — slow week so far",
+      "kind": "morning",
+      "markdown": "## Top of mind\n\n- No hard deadlines today.\n- Spanish practice streak stands at 4 days — keep it alive.\n\n## Notes\n\nThe [[Decision Log]] got one new entry yesterday: keeping the current phone plan for another year.",
+      "generatedAt": "@t-2@06:45"
+    },
+    {
+      "id": "brief-d4-morning",
+      "date": "@d-4",
+      "title": "Morning brief — driving licence paperwork",
+      "kind": "morning",
+      "markdown": "## Top of mind\n\n- **Driving licence**: photo booking still open, slots fill fast.\n- Journal streak: 3 days.\n\n## Money\n\nSpotify annual renewal is @d+21 — decide whether to keep the family plan.",
+      "generatedAt": "@t-4@06:45"
+    }
+  ]
+}
