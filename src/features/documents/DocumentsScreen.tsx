@@ -79,6 +79,14 @@ export function DocumentsScreen() {
                   </span>
                 ))}
               </div>
+              {data.spentThisMonth !== undefined && data.spentThisMonth.length > 0 && (
+                <div className="mt-2 text-sm text-muted">
+                  Spent this month:{' '}
+                  <span className="tnum font-medium">
+                    {data.spentThisMonth.map(formatMoney).join(' · ')}
+                  </span>
+                </div>
+              )}
             </Card>
 
             <SectionHeader>Contracts & subscriptions</SectionHeader>
