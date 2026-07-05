@@ -67,8 +67,8 @@ describe('inbox Processing section', () => {
       const row = screen.getByText('Note already shipped to the vault').closest('li')
       expect(row).not.toBeNull()
       expect(within(row as HTMLElement).getByText('→ Memory')).toBeInTheDocument()
-      // View-only: no buttons inside Processing rows.
-      expect(within(row as HTMLElement).queryByRole('button')).toBeNull()
+      // Each row carries an Undo action (server-side untriage).
+      expect(within(row as HTMLElement).getByRole('button', { name: 'Undo' })).toBeInTheDocument()
     },
   )
 
@@ -93,6 +93,114 @@ describe('inbox Processing section', () => {
           const row = screen.getByText(/Boiler inspection/).closest('li')
           expect(row).not.toBeNull()
           expect(within(row as HTMLElement).getByText('→ Note')).toBeInTheDocument()
+        },
+        { timeout: 5000 },
+      )
+    },
+  )
+
+  it(
+    'undo on an already-processed entry says so and drops the row',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      // gone-1 (seeded in the first test) was never triaged in this mock —
+      // exactly the "agent already handled it" case: untriage answers gone.
+      await bootToInbox()
+      const row = (await screen.findByText('Note already shipped to the vault', undefined, {
+        timeout: 5000,
+      })).closest('li')
+      expect(row).not.toBeNull()
+      await userEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Undo' }))
+
+      await screen.findByText('Already processed by agent', undefined, { timeout: 5000 })
+      await waitFor(
+        () => expect(screen.queryByText('Note already shipped to the vault')).toBeNull(),
+        { timeout: 5000 },
+      )
+      // Let the invalidation-triggered background refetch finish before the
+      // next test boots — the revalidation dedup map is module-level and a
+      // straggler job would swallow the next boot's refresh.
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    },
+  )
+
+  it(
+    'undo of a sent triage returns the note to the inbox deck',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      // A triage that already reached the server: the overlay hides in-4 and
+      // only the processing log remembers it.
+      const overlayRaw = await preferencesKV.get('mock:overlay')
+      const overlay = overlayRaw === null ? {} : (JSON.parse(overlayRaw) as Record<string, unknown>)
+      const triaged = Array.isArray(overlay.triagedIds) ? (overlay.triagedIds as string[]) : []
+      await preferencesKV.set(
+        'mock:overlay',
+        JSON.stringify({ ...overlay, triagedIds: [...triaged, 'in-4'] }),
+      )
+      await preferencesKV.set(
+        'inbox:processing-log',
+        JSON.stringify([
+          {
+            itemId: 'in-4',
+            text: 'Recipe worth keeping: white bean stew',
+            destination: 'note',
+            at: toIsoDateTime(new Date()),
+          },
+        ]),
+      )
+      await bootToInbox()
+
+      // Wait for the deck to settle on fresh data first: the entry shows in
+      // Processing only once the refetched payload hides in-4.
+      const row = (await screen.findByText('Recipe worth keeping: white bean stew', undefined, {
+        timeout: 5000,
+      })).closest('li')
+      const before = Number(
+        /(\d+) to triage/.exec(screen.getByText(/to triage/).textContent ?? '')?.[1],
+      )
+      expect(Number.isFinite(before)).toBe(true)
+      await userEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Undo' }))
+
+      // ok: the entry leaves Processing and the refetched deck grows by one.
+      await waitFor(
+        () => expect(screen.queryByText('Recipe worth keeping: white bean stew')).toBeNull(),
+        { timeout: 5000 },
+      )
+      await waitFor(
+        () => expect(screen.getByText(`${before + 1} to triage`)).toBeInTheDocument(),
+        { timeout: 5000 },
+      )
+      expect(screen.queryByText('Already processed by agent')).toBeNull()
+    },
+  )
+
+  it(
+    'undo before the triage fires cancels it and puts the card back on the deck',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToInbox()
+      // Top of the deck at this point: the in-1 novel idea note.
+      const card = screen.getByText(/Idea for the novel/).closest('[class*="touch-none"]')
+      expect(card).not.toBeNull()
+      fireEvent.pointerDown(card as HTMLElement, { clientX: 10, clientY: 200, pointerId: 1 })
+      fireEvent.pointerMove(card as HTMLElement, { clientX: 180, clientY: 200, pointerId: 1 })
+      fireEvent.pointerUp(card as HTMLElement, { clientX: 180, clientY: 200, pointerId: 1 })
+
+      // The row lands in Processing while the triage waits out its window…
+      const row = await waitFor(
+        () => {
+          const el = screen.getByText(/Idea for the novel/).closest('li')
+          expect(el).not.toBeNull()
+          return el as HTMLElement
+        },
+        { timeout: 5000 },
+      )
+      // …and its Undo cancels the pending triage: the card returns on top.
+      await userEvent.click(within(row).getByRole('button', { name: 'Undo' }))
+      await waitFor(
+        () => {
+          const deckCard = screen.getByText(/Idea for the novel/).closest('[class*="touch-none"]')
+          expect(deckCard).not.toBeNull()
         },
         { timeout: 5000 },
       )

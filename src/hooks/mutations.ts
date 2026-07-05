@@ -163,6 +163,83 @@ export function useHabitTick() {
   })
 }
 
+export function useFollowupUndo() {
+  const { ds, queue } = useData()
+  const queryClient = useQueryClient()
+  return useMutation<StaleableWriteResult, Error, { itemId: string }>({
+    mutationFn: async ({ itemId }) => {
+      try {
+        const res = await ds.undoFollowupAction(itemId)
+        return { queued: false, gone: res.status === 'gone' }
+      } catch {
+        await queue.enqueue({
+          id: crypto.randomUUID(),
+          kind: 'followup-undo',
+          source: ds.kind,
+          enqueuedAt: new Date().toISOString(),
+          itemId,
+        })
+        return { queued: true, gone: false }
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'today'] })
+    },
+  })
+}
+
+export function useHabitUndo() {
+  const { ds, queue } = useData()
+  const queryClient = useQueryClient()
+  return useMutation<StaleableWriteResult, Error, { itemId: string; req: HabitTickRequest }>({
+    mutationFn: async ({ itemId, req }) => {
+      try {
+        const res = await ds.undoHabitTick(itemId, req)
+        return { queued: false, gone: res.status === 'gone' }
+      } catch {
+        await queue.enqueue({
+          id: crypto.randomUUID(),
+          kind: 'habit-undo',
+          source: ds.kind,
+          enqueuedAt: new Date().toISOString(),
+          itemId,
+          req,
+        })
+        return { queued: true, gone: false }
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'habits'] })
+    },
+  })
+}
+
+export function useUntriage() {
+  const { ds, queue } = useData()
+  const queryClient = useQueryClient()
+  return useMutation<StaleableWriteResult, Error, { itemId: string }>({
+    mutationFn: async ({ itemId }) => {
+      try {
+        const res = await ds.untriage(itemId)
+        return { queued: false, gone: res.status === 'gone' }
+      } catch {
+        await queue.enqueue({
+          id: crypto.randomUUID(),
+          kind: 'untriage',
+          source: ds.kind,
+          enqueuedAt: new Date().toISOString(),
+          itemId,
+        })
+        return { queued: true, gone: false }
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'inbox'] })
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'today'] })
+    },
+  })
+}
+
 /**
  * Live view of the offline queue filtered to one mutation kind and the active
  * source — screens use it to draw queued actions exactly like server-side

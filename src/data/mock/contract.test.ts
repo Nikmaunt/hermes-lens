@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { FollowupActionResponse, HabitTickResponse, UntriageResponse } from '@/schemas'
 import { MemoryKV } from '../kv'
 import { MockDataSource } from '../MockDataSource'
+import undoResponsesFixture from './fixtures/undo-responses.json'
+import { toIsoDate } from '@/lib/dates'
 
 /*
  * Contract test: every fixture must survive materialization and parse through
@@ -209,7 +212,7 @@ describe('mock fixtures honor the API contract', () => {
     const habits = await fresh.getHabits()
     const habit = habits.habits.find((h) => h.id === 'habit-gym')
     expect(habit).toBeDefined()
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toIsoDate(new Date()) // local date — fixtures materialize against the local clock
     expect(habit?.completedDates).not.toContain(today)
 
     expect(await fresh.tickHabit('habit-gym', { date: today })).toEqual({
@@ -239,6 +242,76 @@ describe('mock fixtures honor the API contract', () => {
     expect(documents.spentThisMonth?.length).toBeGreaterThan(0)
     const currencies = documents.spentThisMonth?.map((m) => m.currency) ?? []
     expect(new Set(currencies).size).toBe(currencies.length) // one entry per currency
+  })
+
+  it('undo response fixtures parse through the response schemas (ok and gone)', () => {
+    for (const key of ['ok', 'gone'] as const) {
+      expect(FollowupActionResponse.parse(undoResponsesFixture.followupUndo[key]).status).toBe(key)
+      expect(HabitTickResponse.parse(undoResponsesFixture.habitUndo[key]).status).toBe(key)
+      expect(UntriageResponse.parse(undoResponsesFixture.untriage[key]).status).toBe(key)
+    }
+  })
+
+  it('followup undo: cancels a pending action, gone when nothing is pending', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    await fresh.followupAction('fu-2', { action: 'snooze', until: '2027-01-04' })
+
+    expect(await fresh.undoFollowupAction('fu-2')).toEqual({ status: 'ok', itemId: 'fu-2' })
+    const today = await fresh.getToday()
+    expect(today.followUps.find((f) => f.id === 'fu-2')?.pendingAction).toBeUndefined()
+
+    // Nothing pending anymore: the train has left.
+    expect(await fresh.undoFollowupAction('fu-2')).toEqual({ status: 'gone', itemId: 'fu-2' })
+    // fu-6 ships with a fixture pendingAction — already processed server-side,
+    // not a client-cancellable queue file.
+    expect(await fresh.undoFollowupAction('fu-6')).toEqual({ status: 'gone', itemId: 'fu-6' })
+  })
+
+  it('habit undo: removes a pending tick, gone for dates already in the habit file', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const today = toIsoDate(new Date()) // local date — fixtures materialize against the local clock
+    await fresh.tickHabit('habit-gym', { date: today })
+
+    expect(await fresh.undoHabitTick('habit-gym', { date: today })).toEqual({
+      status: 'ok',
+      itemId: 'habit-gym',
+    })
+    const after = await fresh.getHabits()
+    expect(after.habits.find((h) => h.id === 'habit-gym')?.completedDates).not.toContain(today)
+
+    // Undoing again: nothing pending.
+    expect(await fresh.undoHabitTick('habit-gym', { date: today })).toEqual({
+      status: 'gone',
+      itemId: 'habit-gym',
+    })
+
+    // A date recorded in the habit file itself (fixture history) is not a
+    // pending tick — the server refuses and the date stays.
+    const fixtureDate = (await fresh.getHabits()).habits.find((h) => h.id === 'habit-gym')
+      ?.completedDates[0]
+    expect(fixtureDate).toBeDefined()
+    expect(await fresh.undoHabitTick('habit-gym', { date: fixtureDate ?? '' })).toEqual({
+      status: 'gone',
+      itemId: 'habit-gym',
+    })
+    const still = await fresh.getHabits()
+    expect(still.habits.find((h) => h.id === 'habit-gym')?.completedDates).toContain(fixtureDate)
+  })
+
+  it('untriage: returns the note to the inbox, gone when it was never (or no longer) triaged', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const first = (await fresh.getInbox()).items[0]
+    expect(first).toBeDefined()
+    const id = first?.id ?? ''
+    await fresh.triage(id, { destination: 'archive' })
+    expect((await fresh.getInbox()).items.some((i) => i.id === id)).toBe(false)
+
+    expect(await fresh.untriage(id)).toEqual({ status: 'ok', itemId: id })
+    expect((await fresh.getInbox()).items.some((i) => i.id === id)).toBe(true)
+
+    // Second undo has nothing left to cancel.
+    expect(await fresh.untriage(id)).toEqual({ status: 'gone', itemId: id })
+    expect(await fresh.untriage('in-unknown')).toEqual({ status: 'gone', itemId: 'in-unknown' })
   })
 
   it('search never leaks sensitive memory content', async () => {

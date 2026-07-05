@@ -29,3 +29,13 @@ export const TriageResponse = z.object({
   itemId: Id,
 })
 export type TriageResponse = z.infer<typeof TriageResponse>
+
+export const UntriageResponse = z.object({
+  /**
+   * "ok" = the triage was cancelled and the note is back in the inbox;
+   * "gone" = the agent already processed it, nothing left to cancel.
+   */
+  status: z.enum(['ok', 'gone']),
+  itemId: Id,
+})
+export type UntriageResponse = z.infer<typeof UntriageResponse>

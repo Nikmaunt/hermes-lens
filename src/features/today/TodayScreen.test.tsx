@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '@/App'
+import { snoozeTomorrow } from '@/lib/snooze'
 
 // Vitest runs without injected globals, so RTL's auto-cleanup never
 // registers — unmount explicitly or the next boot sees two apps.
@@ -77,6 +78,106 @@ describe('follow-up actions on Today', () => {
     expect(
       screen.queryByRole('button', { name: 'Snooze: Confirm dentist appointment for next week' }),
     ).toBeNull()
+  })
+
+  it('done shows an undo snackbar and undo restores the card', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    const title = "Reply to Rosa about moving Thursday's lesson"
+    const doneBtn = await screen.findByRole('button', { name: `Done: ${title}` }, { timeout: 5000 })
+    await userEvent.click(doneBtn)
+
+    // Snackbar arrives once the action settled (sent or queued).
+    await screen.findByText('Marked done', undefined, { timeout: 5000 })
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    // The optimistic syncing state clears and the buttons come back.
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: `Done: ${title}` })).toBeInTheDocument(),
+      { timeout: 5000 },
+    )
+    expect(screen.getByText(title).className).not.toContain('line-through')
+  })
+
+  it('snooze shows a dated undo snackbar and undo restores the card', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    const title = 'Send Clara the apartment photos she asked for'
+    const snoozeBtn = await screen.findByRole('button', { name: `Snooze: ${title}` }, { timeout: 5000 })
+    await userEvent.click(snoozeBtn)
+    await userEvent.click(await screen.findByRole('button', { name: 'Tomorrow' }))
+
+    await screen.findByText(/^Snoozed to /, undefined, { timeout: 5000 })
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: `Snooze: ${title}` })).toBeInTheDocument(),
+      { timeout: 5000 },
+    )
+  })
+
+  it('shows an Undo button on a syncing card; gone answers "Already processed by agent"', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    // fu-6 ships with a server-side pendingAction: its queue file is out of
+    // reach, so an undo comes back "gone" and the card is quietly dropped.
+    const title = 'Renew the library card before it lapses'
+    const undoBtn = await screen.findByRole('button', { name: `Undo: ${title}` }, { timeout: 5000 })
+    await userEvent.click(undoBtn)
+
+    await screen.findByText('Already processed by agent', undefined, { timeout: 5000 })
+    expect(screen.queryByText(title)).toBeNull()
+    // Informational only — no Undo action on this snackbar.
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+  })
+
+  it('offers "Pick a date…" instead of a bare date input; min is tomorrow', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    const title = 'Book a slot for the driving licence photo'
+    const snoozeBtn = await screen.findByRole('button', { name: `Snooze: ${title}` }, { timeout: 5000 })
+    await userEvent.click(snoozeBtn)
+
+    // The visible control is a button styled like its neighbours; the real
+    // date input stays in the DOM (hidden) as the picker target.
+    expect(await screen.findByRole('button', { name: 'Pick a date…' })).toBeInTheDocument()
+    const input = screen.getByLabelText<HTMLInputElement>('Snooze until date')
+    expect(input.min).toBe(snoozeTomorrow())
+    expect(input.className).toContain('sr-only')
+
+    // A picked date applies immediately as a snooze.
+    fireEvent.change(input, { target: { value: input.min } })
+    await waitFor(() => {
+      expect(screen.getByText(title).className).toContain('line-through')
+    })
+  })
+
+  it('ignores a past date sneaking through the picker', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    // fu-3 is only read here and snoozed by a later test — no residue races.
+    const title = 'Decide: keep or cancel gym membership'
+    const snoozeBtn = await screen.findByRole('button', { name: `Snooze: ${title}` }, { timeout: 5000 })
+    await userEvent.click(snoozeBtn)
+
+    const input = await screen.findByLabelText<HTMLInputElement>('Snooze until date')
+    fireEvent.change(input, { target: { value: '2020-01-01' } })
+    // No snooze fired: the card keeps its buttons.
+    expect(screen.getByText(title).className).not.toContain('line-through')
+    expect(screen.getByRole('button', { name: `Done: ${title}` })).toBeInTheDocument()
+  })
+
+  it('withholds the card Undo while the original request is in flight', { timeout: TEST_TIMEOUT }, async () => {
+    // An undo racing the action it cancels would answer "gone" and then lose
+    // to the late-arriving original — so Undo waits for the POST to settle.
+    await bootToToday()
+    const title = 'Send Clara the apartment photos she asked for'
+    const doneBtn = await screen.findByRole('button', { name: `Done: ${title}` }, { timeout: 5000 })
+    await userEvent.click(doneBtn)
+
+    // Syncing state is synchronous; the Undo button is not there yet.
+    await waitFor(() => expect(screen.getByText(title).className).toContain('line-through'))
+    expect(screen.queryByRole('button', { name: `Undo: ${title}` })).toBeNull()
+
+    // Once the request settles, the card offers Undo.
+    expect(
+      await screen.findByRole('button', { name: `Undo: ${title}` }, { timeout: 5000 }),
+    ).toBeInTheDocument()
   })
 
   it('snoozes a follow-up to next Monday from the snooze menu', { timeout: TEST_TIMEOUT }, async () => {

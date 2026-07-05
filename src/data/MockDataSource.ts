@@ -32,6 +32,7 @@ import {
   TodaySummary,
   TriageRequest,
   TriageResponse,
+  UntriageResponse,
   UpcomingDeadline,
   FollowUp,
 } from '@/schemas'
@@ -489,5 +490,34 @@ export class MockDataSource implements DataSource {
     await this.ready()
     // Idempotent by construction: acknowledging a revision is a no-op here.
     return { status: 'ok' }
+  }
+
+  async undoFollowupAction(itemId: string): Promise<FollowupActionResponse> {
+    await this.ready()
+    // Only a queued-but-unprocessed action can be cancelled. A fixture
+    // pendingAction is the server's own queue, already out of reach.
+    if (this.overlay.followupActions[itemId] === undefined) return { status: 'gone', itemId }
+    delete this.overlay.followupActions[itemId]
+    await this.saveOverlay()
+    return { status: 'ok', itemId }
+  }
+
+  async undoHabitTick(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse> {
+    await this.ready()
+    const ticks = this.overlay.habitTicks[itemId] ?? []
+    // A date already written into the habit file (fixture history) is not
+    // pending — the server refuses to undo it.
+    if (!ticks.includes(req.date)) return { status: 'gone', itemId }
+    this.overlay.habitTicks[itemId] = ticks.filter((d) => d !== req.date)
+    await this.saveOverlay()
+    return { status: 'ok', itemId }
+  }
+
+  async untriage(itemId: string): Promise<UntriageResponse> {
+    await this.ready()
+    if (!this.overlay.triagedIds.includes(itemId)) return { status: 'gone', itemId }
+    this.overlay.triagedIds = this.overlay.triagedIds.filter((id) => id !== itemId)
+    await this.saveOverlay()
+    return { status: 'ok', itemId }
   }
 }

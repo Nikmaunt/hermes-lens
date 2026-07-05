@@ -85,10 +85,12 @@ describe('briefs', () => {
       expect(screen.getAllByText('adhoc').length).toBeGreaterThanOrEqual(1)
 
       // The brief opened in the previous test is read; the others are not.
+      // (waitFor: the list can render from the warm cache before the async
+      // read-state load resolves.)
       const readRow = screen.getByRole('button', {
         name: /Morning brief — quiet day, two things need you/,
       })
-      expect(within(readRow).queryByLabelText('unread')).toBeNull()
+      await waitFor(() => expect(within(readRow).queryByLabelText('unread')).toBeNull())
       const unreadRow = screen.getByRole('button', {
         name: /Heads-up: lease cancel window opens soon/,
       })

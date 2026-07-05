@@ -10,38 +10,85 @@ import {
 } from '@/components/primitives'
 import { CheckIcon, FlameIcon } from '@/components/icons'
 import { useSnackbar } from '@/components/SnackbarProvider'
+import { useData } from '@/data/DataSourceProvider'
 import { useHabits } from '@/hooks/queries'
-import { useHabitTick, useQueuedMutationsOf } from '@/hooks/mutations'
+import { useHabitTick, useHabitUndo, useQueuedMutationsOf } from '@/hooks/mutations'
 import { addDays, parseIsoDate, toIsoDate } from '@/lib/dates'
 import { bestStreak, completionRate, currentStreak } from '@/lib/streaks'
+import { undoAction } from '@/lib/undo'
 import type { Habit } from '@/schemas'
 
 const WEEKS_SHOWN = 12
+
+/** How long the post-tick snackbar offers Undo. */
+const UNDO_WINDOW_MS = 5000
 
 export function HabitsScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useHabits()
   const today = toIsoDate(new Date())
   const snackbar = useSnackbar()
   const habitTick = useHabitTick()
+  const habitUndo = useHabitUndo()
+  const { ds, queue } = useData()
   const queuedTicks = useQueuedMutationsOf('habit-tick')
   // Just-clicked ticks, bridging the gap until the refetched payload (or the
   // offline queue) carries the date. Same optimistic treatment either way.
   const [localTicked, setLocalTicked] = useState<ReadonlySet<string>>(new Set())
+  // Just-undone ticks: suppress today's date from the cached payload until
+  // the refetch after the undo lands.
+  const [localUnticked, setLocalUnticked] = useState<ReadonlySet<string>>(new Set())
+
+  const without = (set: ReadonlySet<string>, id: string): ReadonlySet<string> => {
+    if (!set.has(id)) return set
+    const next = new Set(set)
+    next.delete(id)
+    return next
+  }
 
   const tickedToday = (habit: Habit): boolean =>
-    habit.completedDates.includes(today) ||
-    queuedTicks.some((m) => m.itemId === habit.id && m.req.date === today) ||
-    localTicked.has(habit.id)
+    !localUnticked.has(habit.id) &&
+    (habit.completedDates.includes(today) ||
+      queuedTicks.some((m) => m.itemId === habit.id && m.req.date === today) ||
+      localTicked.has(habit.id))
+
+  const undo = (habit: Habit) => {
+    // The pending date drops optimistically; the withdrawal or the undo
+    // request settles in the background.
+    setLocalTicked((prev) => without(prev, habit.id))
+    setLocalUnticked((prev) => new Set(prev).add(habit.id))
+    void undoAction(
+      queue,
+      (m) =>
+        m.kind === 'habit-tick' &&
+        m.source === ds.kind &&
+        m.itemId === habit.id &&
+        m.req.date === today,
+      () => habitUndo.mutateAsync({ itemId: habit.id, req: { date: today } }),
+    ).then(({ gone }) => {
+      if (gone) {
+        // The date is already written into the habit file — the tick stands.
+        setLocalUnticked((prev) => without(prev, habit.id))
+        snackbar.show({ message: 'Already processed by agent' })
+      }
+    })
+  }
 
   const tick = (habit: Habit) => {
+    setLocalUnticked((prev) => without(prev, habit.id))
     setLocalTicked((prev) => new Set(prev).add(habit.id))
     habitTick.mutate(
       { itemId: habit.id, req: { date: today } },
       {
-        onSuccess: ({ queued, gone }) => {
+        onSuccess: ({ gone }) => {
           // "gone" = the habit vanished server-side; the refetch drops the
           // card, nothing to tell the user.
-          if (!gone && queued) snackbar.show({ message: 'Offline — tick queued for sync' })
+          if (gone) return
+          snackbar.show({
+            message: 'Ticked',
+            actionLabel: 'Undo',
+            durationMs: UNDO_WINDOW_MS,
+            onAction: () => undo(habit),
+          })
         },
       },
     )
@@ -68,11 +115,13 @@ export function HabitsScreen() {
         <div className="space-y-3">
           {data?.habits.map((habit) => {
             const done = tickedToday(habit)
-            // Optimistic view: a pending tick counts for streaks and the grid.
-            const completedDates =
-              done && !habit.completedDates.includes(today)
-                ? [...habit.completedDates, today]
-                : habit.completedDates
+            // Optimistic view: a pending tick counts for streaks and the
+            // grid; an undone one stops counting before the refetch lands.
+            const completedDates = done
+              ? habit.completedDates.includes(today)
+                ? habit.completedDates
+                : [...habit.completedDates, today]
+              : habit.completedDates.filter((d) => d !== today)
             const streak = currentStreak(completedDates, today)
             const best = bestStreak(completedDates)
             const rate = completionRate(completedDates, habit.startedOn, today)

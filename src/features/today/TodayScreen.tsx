@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
@@ -16,12 +16,14 @@ import { CheckIcon, ChevronRightIcon, ClockIcon, NewspaperIcon, SunIcon } from '
 import { UnreadDot } from '@/features/briefs/UnreadDot'
 import { loadReadBriefIds } from '@/features/briefs/readStore'
 import { preferencesKV } from '@/data/kv'
+import { useData } from '@/data/DataSourceProvider'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useToday } from '@/hooks/queries'
-import { useFollowupAction, useQueuedMutationsOf } from '@/hooks/mutations'
+import { useFollowupAction, useFollowupUndo, useQueuedMutationsOf } from '@/hooks/mutations'
 import { useSettings } from '@/settings/SettingsProvider'
 import { formatDate, formatDay, formatTime } from '@/lib/dates'
 import { snoozeNextMonday, snoozeTomorrow } from '@/lib/snooze'
+import { undoAction } from '@/lib/undo'
 import { eventTarget } from '@/lib/eventRoute'
 import type { FollowUp, FollowupActionRequest } from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
@@ -32,6 +34,56 @@ const urgencyTone: Record<FollowUp['urgency'], DueTone> = {
   soon: 'neutral',
 }
 
+/** How long the post-action snackbar offers Undo. */
+const UNDO_WINDOW_MS = 5000
+
+/**
+ * A WebView renders a valueless <input type="date"> as an ugly empty frame,
+ * so the visible control is a button styled like its menu neighbours; the
+ * real input stays hidden and only supplies the native calendar.
+ */
+function SnoozeDatePicker({ onPick }: { onPick: (date: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const min = snoozeTomorrow()
+  return (
+    <>
+      <button
+        onClick={() => {
+          const el = inputRef.current
+          if (el === null) return
+          // showPicker() opens the native calendar; engines without it (or
+          // contexts that refuse it) fall back to clicking the input.
+          if (typeof el.showPicker === 'function') {
+            try {
+              el.showPicker()
+            } catch {
+              el.click()
+            }
+          } else {
+            el.click()
+          }
+        }}
+        className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"
+      >
+        Pick a date…
+      </button>
+      <input
+        ref={inputRef}
+        type="date"
+        aria-label="Snooze until date"
+        min={min}
+        tabIndex={-1}
+        onChange={(e) => {
+          // The native picker honors min, but nothing else is trusted to:
+          // past dates are dropped, not snoozed.
+          if (e.target.value !== '' && e.target.value >= min) onPick(e.target.value)
+        }}
+        className="sr-only"
+      />
+    </>
+  )
+}
+
 export function TodayScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useToday()
   const { settings } = useSettings()
@@ -40,6 +92,8 @@ export function TodayScreen() {
   const maskWidget = settings.appLock && settings.widgetHideDetails
 
   const followupAction = useFollowupAction()
+  const followupUndo = useFollowupUndo()
+  const { ds, queue } = useData()
   const queuedActions = useQueuedMutationsOf('followup-action')
   // Just-clicked actions, bridging the gap until the refetched payload
   // carries the server-side pendingAction (or the offline queue lists it).
@@ -49,17 +103,80 @@ export function TodayScreen() {
   // Items the server reported gone: already resolved by the agent — drop
   // them quietly, never an error.
   const [goneIds, setGoneIds] = useState<ReadonlySet<string>>(new Set())
+  // Items whose pending action was just undone: suppress the stale
+  // pendingAction from the cached payload until the refetch lands.
+  const [undoneIds, setUndoneIds] = useState<ReadonlySet<string>>(new Set())
+  // Items whose original request is still in flight. Undo is withheld until
+  // it settles — an undo racing the action it cancels would answer "gone"
+  // and then lose to the late-arriving original.
+  const [inflightIds, setInflightIds] = useState<ReadonlySet<string>>(new Set())
   const [snoozeMenuFor, setSnoozeMenuFor] = useState<string | null>(null)
+
+  const clearLocalAction = (id: string) =>
+    setLocalActions((prev) => {
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
+
+  const undo = (fu: FollowUp) => {
+    // The optimistic syncing state drops immediately; the queue withdrawal
+    // or the undo request settles in the background.
+    clearLocalAction(fu.id)
+    setUndoneIds((prev) => new Set(prev).add(fu.id))
+    void undoAction(
+      queue,
+      (m) => m.kind === 'followup-action' && m.source === ds.kind && m.itemId === fu.id,
+      () => followupUndo.mutateAsync({ itemId: fu.id }),
+    ).then(
+      ({ gone }) => {
+        if (gone) {
+          // The agent already handled the original action — drop the card
+          // quietly and let the refetch settle the rest.
+          setGoneIds((prev) => new Set(prev).add(fu.id))
+          snackbar.show({ message: 'Already processed by agent' })
+        }
+      },
+    )
+  }
 
   const act = (fu: FollowUp, req: FollowupActionRequest) => {
     setSnoozeMenuFor(null)
+    setUndoneIds((prev) => {
+      if (!prev.has(fu.id)) return prev
+      const next = new Set(prev)
+      next.delete(fu.id)
+      return next
+    })
     setLocalActions((prev) => new Map(prev).set(fu.id, req))
+    setInflightIds((prev) => new Set(prev).add(fu.id))
     followupAction.mutate(
       { itemId: fu.id, req },
       {
-        onSuccess: ({ queued, gone }) => {
-          if (gone) setGoneIds((prev) => new Set(prev).add(fu.id))
-          else if (queued) snackbar.show({ message: 'Offline — action queued for sync' })
+        onSettled: () => {
+          setInflightIds((prev) => {
+            const next = new Set(prev)
+            next.delete(fu.id)
+            return next
+          })
+        },
+        onSuccess: ({ gone }) => {
+          if (gone) {
+            setGoneIds((prev) => new Set(prev).add(fu.id))
+            return
+          }
+          // Sent or queued — either way the action is still cancellable.
+          snackbar.show({
+            message:
+              req.action === 'done'
+                ? 'Marked done'
+                : req.until !== undefined
+                  ? `Snoozed to ${formatDate(req.until)}`
+                  : 'Snoozed',
+            actionLabel: 'Undo',
+            durationMs: UNDO_WINDOW_MS,
+            onAction: () => undo(fu),
+          })
         },
       },
     )
@@ -70,7 +187,7 @@ export function TodayScreen() {
   const pendingActionFor = (
     fu: FollowUp,
   ): { action: 'done' | 'snooze'; until?: string | undefined } | null =>
-    fu.pendingAction ??
+    (undoneIds.has(fu.id) ? null : fu.pendingAction) ??
     queuedActions.find((m) => m.itemId === fu.id)?.req ??
     localActions.get(fu.id) ??
     null
@@ -173,13 +290,22 @@ export function TodayScreen() {
                       {pending !== null ? (
                         <div className="mt-2 flex items-center gap-2">
                           <Badge tone="accent">syncing</Badge>
-                          <span className="text-caption text-faint">
+                          <span className="flex-1 text-caption text-faint">
                             {pending.action === 'done'
                               ? 'marked done'
                               : pending.until !== undefined
                                 ? `snoozed to ${formatDate(pending.until)}`
                                 : 'snoozed'}
                           </span>
+                          {!inflightIds.has(fu.id) && (
+                            <button
+                              aria-label={`Undo: ${fu.title}`}
+                              onClick={() => undo(fu)}
+                              className="bg-raised flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
+                            >
+                              Undo
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <>
@@ -220,15 +346,8 @@ export function TodayScreen() {
                               >
                                 Next Monday
                               </button>
-                              <input
-                                type="date"
-                                aria-label="Snooze until date"
-                                min={snoozeTomorrow()}
-                                onChange={(e) => {
-                                  if (e.target.value !== '')
-                                    act(fu, { action: 'snooze', until: e.target.value })
-                                }}
-                                className="border-line bg-surface h-11 rounded-full border px-3 text-sm text-muted outline-none focus:border-accent focus-visible:outline-none"
+                              <SnoozeDatePicker
+                                onPick={(date) => act(fu, { action: 'snooze', until: date })}
                               />
                             </div>
                           )}

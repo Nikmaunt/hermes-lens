@@ -313,6 +313,66 @@ describe('mutation queue', () => {
     expect(await queue.deadLetters()).toEqual([])
   })
 
+  it('remove withdraws a still-queued mutation and notifies listeners', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    const counts: number[] = []
+    queue.onCountChange((c) => counts.push(c))
+    await queue.enqueue(captureItem(1))
+    await queue.enqueue(captureItem(2))
+
+    expect(await queue.remove('q1')).toBe(true)
+    expect(await queue.count()).toBe(1)
+    expect((await queue.peek())[0]?.id).toBe('q2')
+    expect(counts).toEqual([1, 2, 1])
+
+    // Already gone (e.g. a drain raced the undo): nothing to withdraw.
+    expect(await queue.remove('q1')).toBe(false)
+    expect(await queue.count()).toBe(1)
+  })
+
+  it('replays undo mutations to the matching DataSource methods', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    const enqueuedAt = new Date().toISOString()
+    await queue.enqueue({ id: 'u1', kind: 'followup-undo', source: 'api', enqueuedAt, itemId: 'fu-1' })
+    await queue.enqueue({
+      id: 'u2',
+      kind: 'habit-undo',
+      source: 'api',
+      enqueuedAt,
+      itemId: 'habit-gym',
+      req: { date: '2026-07-05' },
+    })
+    await queue.enqueue({ id: 'u3', kind: 'untriage', source: 'api', enqueuedAt, itemId: 'in-1' })
+
+    const calls: unknown[] = []
+    const ds = {
+      kind: 'api',
+      undoFollowupAction: (itemId: string) => {
+        calls.push(['followup-undo', itemId])
+        return Promise.resolve({ status: 'ok', itemId })
+      },
+      undoHabitTick: (itemId: string, req: unknown) => {
+        calls.push(['habit-undo', itemId, req])
+        // gone is success-by-staleness for undo too: the agent already
+        // processed the original action, nothing to keep in the queue.
+        return Promise.resolve({ status: 'gone', itemId })
+      },
+      untriage: (itemId: string) => {
+        calls.push(['untriage', itemId])
+        return Promise.resolve({ status: 'ok', itemId })
+      },
+    } as unknown as DataSource
+
+    expect(await queue.drain(ds)).toBe(3)
+    expect(await queue.count()).toBe(0)
+    expect(await queue.deadLetters()).toEqual([])
+    expect(calls).toEqual([
+      ['followup-undo', 'fu-1'],
+      ['habit-undo', 'habit-gym', { date: '2026-07-05' }],
+      ['untriage', 'in-1'],
+    ])
+  })
+
   it('notifies count listeners', async () => {
     const queue = createMutationQueue(new MemoryKV())
     const counts: number[] = []

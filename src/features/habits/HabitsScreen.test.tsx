@@ -74,4 +74,37 @@ describe('habit tick from the Habits screen', () => {
       ).toBeEnabled()
     },
   )
+
+  it(
+    'tick shows an undo snackbar and undo flips the button back',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToHabits()
+      await userEvent.click(screen.getByRole('button', { name: 'Tick today: Gym / strength' }))
+
+      await screen.findByText('Ticked', undefined, { timeout: 5000 })
+      await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+      await waitFor(
+        () =>
+          expect(screen.getByRole('button', { name: 'Tick today: Gym / strength' })).toBeEnabled(),
+        { timeout: 5000 },
+      )
+      expect(screen.queryByRole('button', { name: 'Ticked today: Gym / strength' })).toBeNull()
+      // Let the background undo request and refetch settle before the next
+      // boot reads the overlay.
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+    },
+  )
+
+  it(
+    'the undone tick does not resurface after a reboot (overlay round-trip)',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToHabits()
+      expect(
+        await screen.findByRole('button', { name: 'Tick today: Gym / strength' }, { timeout: 5000 }),
+      ).toBeEnabled()
+    },
+  )
 })
