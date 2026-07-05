@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '@/App'
+import { snoozeTomorrow } from '@/lib/snooze'
 
 // Vitest runs without injected globals, so RTL's auto-cleanup never
 // registers — unmount explicitly or the next boot sees two apps.
@@ -125,6 +126,40 @@ describe('follow-up actions on Today', () => {
     expect(screen.queryByText(title)).toBeNull()
     // Informational only — no Undo action on this snackbar.
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+  })
+
+  it('offers "Pick a date…" instead of a bare date input; min is tomorrow', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    const title = 'Book a slot for the driving licence photo'
+    const snoozeBtn = await screen.findByRole('button', { name: `Snooze: ${title}` }, { timeout: 5000 })
+    await userEvent.click(snoozeBtn)
+
+    // The visible control is a button styled like its neighbours; the real
+    // date input stays in the DOM (hidden) as the picker target.
+    expect(await screen.findByRole('button', { name: 'Pick a date…' })).toBeInTheDocument()
+    const input = screen.getByLabelText<HTMLInputElement>('Snooze until date')
+    expect(input.min).toBe(snoozeTomorrow())
+    expect(input.className).toContain('sr-only')
+
+    // A picked date applies immediately as a snooze.
+    fireEvent.change(input, { target: { value: input.min } })
+    await waitFor(() => {
+      expect(screen.getByText(title).className).toContain('line-through')
+    })
+  })
+
+  it('ignores a past date sneaking through the picker', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    // fu-3 is only read here and snoozed by a later test — no residue races.
+    const title = 'Decide: keep or cancel gym membership'
+    const snoozeBtn = await screen.findByRole('button', { name: `Snooze: ${title}` }, { timeout: 5000 })
+    await userEvent.click(snoozeBtn)
+
+    const input = await screen.findByLabelText<HTMLInputElement>('Snooze until date')
+    fireEvent.change(input, { target: { value: '2020-01-01' } })
+    // No snooze fired: the card keeps its buttons.
+    expect(screen.getByText(title).className).not.toContain('line-through')
+    expect(screen.getByRole('button', { name: `Done: ${title}` })).toBeInTheDocument()
   })
 
   it('snoozes a follow-up to next Monday from the snooze menu', { timeout: TEST_TIMEOUT }, async () => {

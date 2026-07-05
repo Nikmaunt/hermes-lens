@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
@@ -36,6 +36,53 @@ const urgencyTone: Record<FollowUp['urgency'], DueTone> = {
 
 /** How long the post-action snackbar offers Undo. */
 const UNDO_WINDOW_MS = 5000
+
+/**
+ * A WebView renders a valueless <input type="date"> as an ugly empty frame,
+ * so the visible control is a button styled like its menu neighbours; the
+ * real input stays hidden and only supplies the native calendar.
+ */
+function SnoozeDatePicker({ onPick }: { onPick: (date: string) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const min = snoozeTomorrow()
+  return (
+    <>
+      <button
+        onClick={() => {
+          const el = inputRef.current
+          if (el === null) return
+          // showPicker() opens the native calendar; engines without it (or
+          // contexts that refuse it) fall back to clicking the input.
+          if (typeof el.showPicker === 'function') {
+            try {
+              el.showPicker()
+            } catch {
+              el.click()
+            }
+          } else {
+            el.click()
+          }
+        }}
+        className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"
+      >
+        Pick a date…
+      </button>
+      <input
+        ref={inputRef}
+        type="date"
+        aria-label="Snooze until date"
+        min={min}
+        tabIndex={-1}
+        onChange={(e) => {
+          // The native picker honors min, but nothing else is trusted to:
+          // past dates are dropped, not snoozed.
+          if (e.target.value !== '' && e.target.value >= min) onPick(e.target.value)
+        }}
+        className="sr-only"
+      />
+    </>
+  )
+}
 
 export function TodayScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useToday()
@@ -282,15 +329,8 @@ export function TodayScreen() {
                               >
                                 Next Monday
                               </button>
-                              <input
-                                type="date"
-                                aria-label="Snooze until date"
-                                min={snoozeTomorrow()}
-                                onChange={(e) => {
-                                  if (e.target.value !== '')
-                                    act(fu, { action: 'snooze', until: e.target.value })
-                                }}
-                                className="border-line bg-surface h-11 rounded-full border px-3 text-sm text-muted outline-none focus:border-accent focus-visible:outline-none"
+                              <SnoozeDatePicker
+                                onPick={(date) => act(fu, { action: 'snooze', until: date })}
                               />
                             </div>
                           )}
