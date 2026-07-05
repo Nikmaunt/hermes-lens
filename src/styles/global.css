@@ -25,20 +25,34 @@
   --hl-ok-dim: rgba(87, 180, 124, 0.14);
   --hl-warn: #e2a33c;
   --hl-warn-dim: rgba(226, 163, 60, 0.16);
+  /*
+   * Interactive control states (switch track/thumb). WCAG 1.4.11 pairs —
+   * enforced by src/styles/tokens.test.ts, don't tweak by eye:
+   * track vs surface ≥3:1, thumb vs track ≥3:1. The on-state reuses
+   * accent (track) and accent-ink (thumb), tested against the same bar.
+   */
+  --hl-control-track: #606e8e;
+  --hl-control-thumb: #eef1f8;
   color-scheme: dark;
 }
 
 html.light {
   --hl-bg: #f2f3f6;
   --hl-surface: #ffffff;
-  --hl-raised: #ffffff;
+  /*
+   * Raised must be visibly distinct from surface: segmented tracks, input
+   * fields and skeletons all sit on white cards and vanished when both
+   * mapped to #ffffff.
+   */
+  --hl-raised: #e8ebf2;
   --hl-line: #e2e5ec;
   --hl-ink: #191d28;
   --hl-muted: #5f6880;
   --hl-faint: #9aa2b5;
-  --hl-accent: #b07f1e;
+  /* Deep enough gold to hold 3:1 on bg, surface AND raised (tokens.test.ts). */
+  --hl-accent: #a3740f;
   --hl-accent-ink: #ffffff;
-  --hl-accent-dim: rgba(176, 127, 30, 0.12);
+  --hl-accent-dim: rgba(163, 116, 15, 0.12);
   --hl-danger: #cf3f34;
   --hl-danger-dim: rgba(207, 63, 52, 0.1);
   --hl-overdue: #a85c52;
@@ -47,6 +61,8 @@ html.light {
   --hl-ok-dim: rgba(46, 125, 79, 0.12);
   --hl-warn: #a8690b;
   --hl-warn-dim: rgba(168, 105, 11, 0.14);
+  --hl-control-track: #767e92;
+  --hl-control-thumb: #ffffff;
   color-scheme: light;
 }
 
@@ -69,6 +85,8 @@ html.light {
   --color-ok-dim: var(--hl-ok-dim);
   --color-warn: var(--hl-warn);
   --color-warn-dim: var(--hl-warn-dim);
+  --color-control-track: var(--hl-control-track);
+  --color-control-thumb: var(--hl-control-thumb);
 
   --font-sans:
     'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
