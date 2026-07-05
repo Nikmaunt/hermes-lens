@@ -30,6 +30,9 @@ function describeMutation(item: QueuedMutation): string {
       item.req.action === 'snooze' ? `snooze until ${item.req.until ?? '?'}` : 'done'
     }`
   if (item.kind === 'habit-tick') return `Habit ${item.itemId}: tick ${item.req.date}`
+  if (item.kind === 'followup-undo') return `Follow-up ${item.itemId}: undo`
+  if (item.kind === 'habit-undo') return `Habit ${item.itemId}: undo tick ${item.req.date}`
+  if (item.kind === 'untriage') return `Inbox ${item.itemId}: undo triage`
   return `Calendar sync ack (${item.req.lastSeenRevision})`
 }
 

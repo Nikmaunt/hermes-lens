@@ -21,6 +21,9 @@ export type QueuedMutation =
   | { id: string; kind: 'followup-action'; source: Source; enqueuedAt: string; itemId: string; req: FollowupActionRequest }
   | { id: string; kind: 'habit-tick'; source: Source; enqueuedAt: string; itemId: string; req: HabitTickRequest }
   | { id: string; kind: 'ack-sync'; source: Source; enqueuedAt: string; req: SyncAckRequest }
+  | { id: string; kind: 'followup-undo'; source: Source; enqueuedAt: string; itemId: string }
+  | { id: string; kind: 'habit-undo'; source: Source; enqueuedAt: string; itemId: string; req: HabitTickRequest }
+  | { id: string; kind: 'untriage'; source: Source; enqueuedAt: string; itemId: string }
 
 /** A mutation the server permanently rejected — parked for the user to decide. */
 export interface DeadLetter {
@@ -101,6 +104,9 @@ export function createMutationQueue(kv: KV) {
     else if (item.kind === 'flag') await ds.flagMemory(item.itemId, item.req)
     else if (item.kind === 'followup-action') await ds.followupAction(item.itemId, item.req)
     else if (item.kind === 'habit-tick') await ds.tickHabit(item.itemId, item.req)
+    else if (item.kind === 'followup-undo') await ds.undoFollowupAction(item.itemId)
+    else if (item.kind === 'habit-undo') await ds.undoHabitTick(item.itemId, item.req)
+    else if (item.kind === 'untriage') await ds.untriage(item.itemId)
     else await ds.ackSync(item.req)
   }
 
@@ -110,6 +116,22 @@ export function createMutationQueue(kv: KV) {
         const items = await load()
         items.push(item)
         await save(items)
+      })
+    },
+
+    /**
+     * Withdraw a mutation that is still waiting in the queue (undo before
+     * anything was sent). Returns false when it is no longer there — a drain
+     * raced the undo and already sent it, so the caller must undo over the
+     * network instead.
+     */
+    remove(id: string): Promise<boolean> {
+      return serialized(async () => {
+        const items = await load()
+        const kept = items.filter((item) => item.id !== id)
+        if (kept.length === items.length) return false
+        await save(kept)
+        return true
       })
     },
 
