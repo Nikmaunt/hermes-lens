@@ -25,6 +25,11 @@ function describeMutation(item: QueuedMutation): string {
   }
   if (item.kind === 'triage') return `Triage ${item.itemId} → ${item.req.destination}`
   if (item.kind === 'flag') return `Flag ${item.itemId}: ${item.req.action}`
+  if (item.kind === 'followup-action')
+    return `Follow-up ${item.itemId}: ${
+      item.req.action === 'snooze' ? `snooze until ${item.req.until ?? '?'}` : 'done'
+    }`
+  if (item.kind === 'habit-tick') return `Habit ${item.itemId}: tick ${item.req.date}`
   return `Calendar sync ack (${item.req.lastSeenRevision})`
 }
 

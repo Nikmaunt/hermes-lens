@@ -1,11 +1,15 @@
 import type { ZodType } from 'zod'
 import {
   AgentStatus,
+  BriefDetail,
+  BriefsResponse,
   CaptureResponse,
   DecisionsResponse,
   DocumentsResponse,
   FlagResponse,
+  FollowupActionResponse,
   HabitsResponse,
+  HabitTickResponse,
   InboxResponse,
   MemoryResponse,
   PeopleResponse,
@@ -19,6 +23,8 @@ import {
   TriageResponse,
   type CaptureRequest,
   type FlagRequest,
+  type FollowupActionRequest,
+  type HabitTickRequest,
   type SyncAckRequest,
   type TriageRequest,
 } from '@/schemas'
@@ -166,6 +172,14 @@ export class ApiDataSource implements DataSource {
     return this.request(RemindersResponse, '/api/reminders')
   }
 
+  getBriefs(): Promise<BriefsResponse> {
+    return this.request(BriefsResponse, '/api/briefs')
+  }
+
+  getBrief(id: string): Promise<BriefDetail> {
+    return this.request(BriefDetail, `/api/briefs/${encodeURIComponent(id)}`)
+  }
+
   search(query: string): Promise<SearchResponse> {
     return this.request(SearchResponse, `/api/search?q=${encodeURIComponent(query)}`)
   }
@@ -180,6 +194,18 @@ export class ApiDataSource implements DataSource {
 
   flagMemory(itemId: string, req: FlagRequest): Promise<FlagResponse> {
     return this.request(FlagResponse, `/api/memory/${encodeURIComponent(itemId)}/flag`, req)
+  }
+
+  followupAction(itemId: string, req: FollowupActionRequest): Promise<FollowupActionResponse> {
+    return this.request(
+      FollowupActionResponse,
+      `/api/followups/${encodeURIComponent(itemId)}/action`,
+      req,
+    )
+  }
+
+  tickHabit(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse> {
+    return this.request(HabitTickResponse, `/api/habits/${encodeURIComponent(itemId)}/tick`, req)
   }
 
   ackSync(req: SyncAckRequest): Promise<SyncAckResponse> {

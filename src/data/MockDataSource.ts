@@ -1,12 +1,19 @@
 import {
   AgentStatus,
+  BriefDetail,
+  BriefsResponse,
   CaptureRequest,
   CaptureResponse,
   DecisionsResponse,
   DocumentsResponse,
   FlagRequest,
   FlagResponse,
+  FollowupActionRequest,
+  FollowupActionResponse,
+  FollowUpPendingAction,
   HabitsResponse,
+  HabitTickRequest,
+  HabitTickResponse,
   InboxItem,
   InboxResponse,
   MemoryItem,
@@ -45,6 +52,7 @@ import habitsFixture from './mock/fixtures/habits.json'
 import polishFixture from './mock/fixtures/polish-words.json'
 import inboxFixture from './mock/fixtures/inbox.json'
 import remindersFixture from './mock/fixtures/reminders.json'
+import briefsFixture from './mock/fixtures/briefs.json'
 
 const TIMELINE_PAGE_SIZE = 25
 
@@ -55,6 +63,10 @@ interface MockOverlay {
   flags: Record<string, { action: 'forget' | 'mark-sensitive'; requestedAt: string }>
   /** clientId → response of the first capture, for offline-replay dedup. */
   captureClientIds: Record<string, CaptureResponse>
+  /** followUpId → queued done/snooze, mirroring the server's pendingAction. */
+  followupActions: Record<string, FollowUpPendingAction>
+  /** habitId → extra completed dates ticked from the app. */
+  habitTicks: Record<string, string[]>
 }
 
 const EMPTY_OVERLAY: MockOverlay = {
@@ -62,6 +74,8 @@ const EMPTY_OVERLAY: MockOverlay = {
   triagedIds: [],
   flags: {},
   captureClientIds: {},
+  followupActions: {},
+  habitTicks: {},
 }
 const OVERLAY_KEY = 'mock:overlay'
 
@@ -92,6 +106,9 @@ export class MockDataSource implements DataSource {
   private polishWords: PolishWordsResponse
   private inboxItems: InboxItem[]
   private reminders: RemindersResponse
+  private briefs: BriefDetail[]
+  private todayBrief: TodaySummary['brief']
+  private spentThisMonth: Money[] | undefined
 
   constructor(
     private kv: KV,
@@ -114,6 +131,11 @@ export class MockDataSource implements DataSource {
     this.polishWords = PolishWordsResponse.parse(materialize(polishFixture, now))
     this.inboxItems = InboxResponse.shape.items.parse(materialize(inboxFixture.items, now))
     this.reminders = RemindersResponse.parse(materialize(remindersFixture, now))
+    this.briefs = z.array(BriefDetail).parse(materialize(briefsFixture.briefs, now))
+    this.todayBrief = TodaySummary.shape.brief.parse(materialize(todayFixture.brief, now))
+    this.spentThisMonth = DocumentsResponse.shape.spentThisMonth.parse(
+      documentsFixture.spentThisMonth,
+    )
     this.overlayLoaded = this.loadOverlay()
   }
 
@@ -188,13 +210,20 @@ export class MockDataSource implements DataSource {
       .filter((e) => new Date(e.at).getTime() >= dayAgo)
       .map((e) => ({ id: e.id, at: e.at, summary: e.title, category: e.category }))
 
+    // Server behavior: queued done/snooze actions surface as pendingAction.
+    const followUps = this.followUps.map((fu) => {
+      const pending = this.overlay.followupActions[fu.id]
+      return pending === undefined ? fu : { ...fu, pendingAction: pending }
+    })
+
     return {
       date: toIsoDate(now),
-      followUps: this.followUps,
+      followUps,
       deadlines,
       agentActivity,
       inboxCount: this.currentInbox().length,
       generatedAt: toIsoDateTime(now),
+      ...(this.todayBrief === undefined ? {} : { brief: this.todayBrief }),
     }
   }
 
@@ -241,7 +270,11 @@ export class MockDataSource implements DataSource {
     const monthlyTotal: Money[] = [...totals.entries()].map(([currency, cents]) =>
       Money.parse({ currency, cents }),
     )
-    return { items: this.documents, monthlyTotal }
+    return {
+      items: this.documents,
+      monthlyTotal,
+      ...(this.spentThisMonth === undefined ? {} : { spentThisMonth: this.spentThisMonth }),
+    }
   }
 
   async getDecisions(projectId?: string): Promise<DecisionsResponse> {
@@ -254,7 +287,14 @@ export class MockDataSource implements DataSource {
 
   async getHabits(): Promise<HabitsResponse> {
     await this.ready()
-    return this.habits
+    // Server behavior: pending ticks are unioned into completedDates.
+    const habits = this.habits.habits.map((habit) => {
+      const ticks = this.overlay.habitTicks[habit.id]
+      if (ticks === undefined || ticks.length === 0) return habit
+      const merged = [...new Set([...habit.completedDates, ...ticks])].sort()
+      return { ...habit, completedDates: merged }
+    })
+    return { habits, generatedAt: this.habits.generatedAt }
   }
 
   async getPolishWords(): Promise<PolishWordsResponse> {
@@ -270,6 +310,22 @@ export class MockDataSource implements DataSource {
   async getReminders(): Promise<RemindersResponse> {
     await this.ready()
     return this.reminders
+  }
+
+  async getBriefs(): Promise<BriefsResponse> {
+    await this.ready()
+    const items = [...this.briefs]
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+      .map(({ id, date, title, kind }) => ({ id, date, title, kind }))
+    return { items }
+  }
+
+  async getBrief(id: string): Promise<BriefDetail> {
+    await this.ready()
+    const brief = this.briefs.find((b) => b.id === id)
+    // Mirrors the server's 404 on an unknown id.
+    if (brief === undefined) throw new Error(`Brief not found: ${id}`)
+    return brief
   }
 
   async search(query: string): Promise<SearchResponse> {
@@ -396,6 +452,37 @@ export class MockDataSource implements DataSource {
     this.overlay.flags[itemId] = { action: req.action, requestedAt: toIsoDateTime(new Date()) }
     await this.saveOverlay()
     return { status: 'pending', itemId }
+  }
+
+  async followupAction(
+    itemId: string,
+    req: FollowupActionRequest,
+  ): Promise<FollowupActionResponse> {
+    await this.ready()
+    // The agent already resolved (or never had) this item: success-by-staleness.
+    if (!this.followUps.some((fu) => fu.id === itemId)) return { status: 'gone', itemId }
+    // While an action is pending the server ignores further ones — so does the mock.
+    if (this.overlay.followupActions[itemId] === undefined) {
+      this.overlay.followupActions[itemId] = {
+        action: req.action,
+        ...(req.until === undefined ? {} : { until: req.until }),
+        requestedAt: toIsoDateTime(new Date()),
+      }
+      await this.saveOverlay()
+    }
+    return { status: 'ok', itemId }
+  }
+
+  async tickHabit(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse> {
+    await this.ready()
+    if (!this.habits.habits.some((h) => h.id === itemId)) return { status: 'gone', itemId }
+    // Idempotent: replaying the same date (offline queue) is a no-op success.
+    const ticks = this.overlay.habitTicks[itemId] ?? []
+    if (!ticks.includes(req.date)) {
+      this.overlay.habitTicks[itemId] = [...ticks, req.date]
+      await this.saveOverlay()
+    }
+    return { status: 'ok', itemId }
   }
 
   async ackSync(_req: SyncAckRequest): Promise<SyncAckResponse> {

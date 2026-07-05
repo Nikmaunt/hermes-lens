@@ -151,6 +151,96 @@ describe('mock fixtures honor the API contract', () => {
     }
   })
 
+  it('serves briefs that honor the contract, newest first, with today wired up', async () => {
+    const briefs = await ds.getBriefs()
+    expect(briefs.items.length).toBeGreaterThanOrEqual(3)
+    const dates = briefs.items.map((b) => b.date)
+    expect([...dates].sort().reverse()).toEqual(dates)
+    expect(briefs.items.some((b) => b.kind === 'adhoc')).toBe(true)
+
+    // Every listed brief opens as a full detail with markdown.
+    for (const item of briefs.items) {
+      const detail = await ds.getBrief(item.id)
+      expect(detail.id).toBe(item.id)
+      expect(detail.markdown.length).toBeGreaterThan(0)
+    }
+
+    // Today points at an existing morning brief (Demo mode must exercise the card).
+    const today = await ds.getToday()
+    expect(today.brief).toBeDefined()
+    const linked = briefs.items.find((b) => b.id === today.brief?.id)
+    expect(linked?.kind).toBe('morning')
+  })
+
+  it('rejects an unknown brief id like the server 404s', async () => {
+    await expect(ds.getBrief('no-such-brief')).rejects.toThrow()
+  })
+
+  it('ships a follow-up with a pendingAction so Demo mode shows the syncing state', async () => {
+    const today = await ds.getToday()
+    const pending = today.followUps.filter((fu) => fu.pendingAction !== undefined)
+    expect(pending.length).toBeGreaterThan(0)
+  })
+
+  it('followup action: ok + pendingAction surfaces, repeat snooze ignored, unknown id gone', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const res = await fresh.followupAction('fu-2', { action: 'snooze', until: '2027-01-04' })
+    expect(res).toEqual({ status: 'ok', itemId: 'fu-2' })
+
+    const today = await fresh.getToday()
+    const fu = today.followUps.find((f) => f.id === 'fu-2')
+    expect(fu?.pendingAction?.action).toBe('snooze')
+    expect(fu?.pendingAction?.until).toBe('2027-01-04')
+
+    // The server ignores a second action while one is pending — so does the mock.
+    await fresh.followupAction('fu-2', { action: 'snooze', until: '2027-02-01' })
+    const again = await fresh.getToday()
+    expect(again.followUps.find((f) => f.id === 'fu-2')?.pendingAction?.until).toBe('2027-01-04')
+
+    // Offline replay after the agent resolved the item: gone is a success.
+    expect(await fresh.followupAction('fu-does-not-exist', { action: 'done' })).toEqual({
+      status: 'gone',
+      itemId: 'fu-does-not-exist',
+    })
+  })
+
+  it('habit tick: date unions into completedDates, repeat tick is idempotent, unknown id gone', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const habits = await fresh.getHabits()
+    const habit = habits.habits.find((h) => h.id === 'habit-gym')
+    expect(habit).toBeDefined()
+    const today = new Date().toISOString().slice(0, 10)
+    expect(habit?.completedDates).not.toContain(today)
+
+    expect(await fresh.tickHabit('habit-gym', { date: today })).toEqual({
+      status: 'ok',
+      itemId: 'habit-gym',
+    })
+    const after = await fresh.getHabits()
+    const ticked = after.habits.find((h) => h.id === 'habit-gym')?.completedDates ?? []
+    expect(ticked).toContain(today)
+    expect([...ticked].sort()).toEqual(ticked) // stays ascending
+
+    // Replaying the same tick (offline queue) must not duplicate the date.
+    await fresh.tickHabit('habit-gym', { date: today })
+    const replayed = await fresh.getHabits()
+    const dates = replayed.habits.find((h) => h.id === 'habit-gym')?.completedDates ?? []
+    expect(dates.filter((d) => d === today).length).toBe(1)
+
+    expect(await fresh.tickHabit('habit-unknown', { date: today })).toEqual({
+      status: 'gone',
+      itemId: 'habit-unknown',
+    })
+  })
+
+  it('documents expose month-to-date spend per currency', async () => {
+    const documents = await ds.getDocuments()
+    expect(documents.spentThisMonth).toBeDefined()
+    expect(documents.spentThisMonth?.length).toBeGreaterThan(0)
+    const currencies = documents.spentThisMonth?.map((m) => m.currency) ?? []
+    expect(new Set(currencies).size).toBe(currencies.length) // one entry per currency
+  })
+
   it('search never leaks sensitive memory content', async () => {
     // "refill" appears only inside a sensitive fact (not in any topic) —
     // content of sensitive items must not be searchable at all.

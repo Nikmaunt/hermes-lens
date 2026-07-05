@@ -1,5 +1,7 @@
 import type {
   AgentStatus,
+  BriefDetail,
+  BriefsResponse,
   CaptureRequest,
   CaptureResponse,
   DecisionsResponse,
@@ -7,7 +9,11 @@ import type {
   EventCategory,
   FlagRequest,
   FlagResponse,
+  FollowupActionRequest,
+  FollowupActionResponse,
   HabitsResponse,
+  HabitTickRequest,
+  HabitTickResponse,
   InboxResponse,
   MemoryResponse,
   PeopleResponse,
@@ -48,10 +54,14 @@ export interface DataSource {
   getPolishWords(): Promise<PolishWordsResponse>
   getInbox(): Promise<InboxResponse>
   getReminders(): Promise<RemindersResponse>
+  getBriefs(): Promise<BriefsResponse>
+  getBrief(id: string): Promise<BriefDetail>
   search(query: string): Promise<SearchResponse>
 
   capture(req: CaptureRequest): Promise<CaptureResponse>
   triage(itemId: string, req: TriageRequest): Promise<TriageResponse>
   flagMemory(itemId: string, req: FlagRequest): Promise<FlagResponse>
+  followupAction(itemId: string, req: FollowupActionRequest): Promise<FollowupActionResponse>
+  tickHabit(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse>
   ackSync(req: SyncAckRequest): Promise<SyncAckResponse>
 }

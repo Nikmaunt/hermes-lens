@@ -222,6 +222,97 @@ describe('mutation queue', () => {
     expect(counts).toEqual([1, 0])
   })
 
+  it('replays followup actions in order and treats a 200 {status:"gone"} as success', async () => {
+    // "gone" means the agent already resolved the item — success-by-staleness,
+    // the mutation must leave the queue without any dead-lettering.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue({
+      id: 'f1',
+      kind: 'followup-action',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'fu-1',
+      req: { action: 'done' },
+    })
+    await queue.enqueue({
+      id: 'f2',
+      kind: 'followup-action',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'fu-2',
+      req: { action: 'snooze', until: '2026-07-13' },
+    })
+
+    const seen: { itemId: string; action: string }[] = []
+    const ds = {
+      kind: 'api',
+      followupAction: (itemId: string, req: { action: string }) => {
+        seen.push({ itemId, action: req.action })
+        return Promise.resolve({ status: 'gone', itemId })
+      },
+    } as unknown as DataSource
+
+    expect(await queue.drain(ds)).toBe(2)
+    expect(await queue.count()).toBe(0)
+    expect(await queue.deadLetters()).toEqual([])
+    expect(seen).toEqual([
+      { itemId: 'fu-1', action: 'done' },
+      { itemId: 'fu-2', action: 'snooze' },
+    ])
+  })
+
+  it('keeps a followup action queued in order across a transient failure', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue({
+      id: 'f1',
+      kind: 'followup-action',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'fu-1',
+      req: { action: 'snooze', until: '2026-07-06' },
+    })
+
+    const offline = {
+      kind: 'api',
+      followupAction: () => Promise.reject(new ApiError('Agent timed out', 'timeout')),
+    } as unknown as DataSource
+    expect(await queue.drain(offline)).toBe(0)
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+
+    // Back online: the same request replays with its original payload.
+    const sent: unknown[] = []
+    const online = {
+      kind: 'api',
+      followupAction: (itemId: string, req: unknown) => {
+        sent.push({ itemId, req })
+        return Promise.resolve({ status: 'ok', itemId })
+      },
+    } as unknown as DataSource
+    expect(await queue.drain(online)).toBe(1)
+    expect(sent).toEqual([{ itemId: 'fu-1', req: { action: 'snooze', until: '2026-07-06' } }])
+  })
+
+  it('replays habit ticks and treats gone as success', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue({
+      id: 'h1',
+      kind: 'habit-tick',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'habit-gym',
+      req: { date: '2026-07-05' },
+    })
+
+    const ds = {
+      kind: 'api',
+      tickHabit: (itemId: string) => Promise.resolve({ status: 'gone', itemId }),
+    } as unknown as DataSource
+    expect(await queue.drain(ds)).toBe(1)
+    expect(await queue.count()).toBe(0)
+    expect(await queue.deadLetters()).toEqual([])
+  })
+
   it('notifies count listeners', async () => {
     const queue = createMutationQueue(new MemoryKV())
     const counts: number[] = []

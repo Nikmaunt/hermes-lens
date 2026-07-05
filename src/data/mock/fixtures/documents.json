@@ -88,5 +88,9 @@
       "cancelBy": null,
       "notes": "Renewal appointment takes ~3 months to get. Start around @d+320."
     }
+  ],
+  "spentThisMonth": [
+    { "cents": 412350, "currency": "USD" },
+    { "cents": 2999, "currency": "EUR" }
   ]
 }
