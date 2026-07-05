@@ -79,6 +79,54 @@ describe('follow-up actions on Today', () => {
     ).toBeNull()
   })
 
+  it('done shows an undo snackbar and undo restores the card', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    const title = "Reply to Rosa about moving Thursday's lesson"
+    const doneBtn = await screen.findByRole('button', { name: `Done: ${title}` }, { timeout: 5000 })
+    await userEvent.click(doneBtn)
+
+    // Snackbar arrives once the action settled (sent or queued).
+    await screen.findByText('Marked done', undefined, { timeout: 5000 })
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    // The optimistic syncing state clears and the buttons come back.
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: `Done: ${title}` })).toBeInTheDocument(),
+      { timeout: 5000 },
+    )
+    expect(screen.getByText(title).className).not.toContain('line-through')
+  })
+
+  it('snooze shows a dated undo snackbar and undo restores the card', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    const title = 'Send Clara the apartment photos she asked for'
+    const snoozeBtn = await screen.findByRole('button', { name: `Snooze: ${title}` }, { timeout: 5000 })
+    await userEvent.click(snoozeBtn)
+    await userEvent.click(await screen.findByRole('button', { name: 'Tomorrow' }))
+
+    await screen.findByText(/^Snoozed to /, undefined, { timeout: 5000 })
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: `Snooze: ${title}` })).toBeInTheDocument(),
+      { timeout: 5000 },
+    )
+  })
+
+  it('shows an Undo button on a syncing card; gone answers "Already processed by agent"', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    // fu-6 ships with a server-side pendingAction: its queue file is out of
+    // reach, so an undo comes back "gone" and the card is quietly dropped.
+    const title = 'Renew the library card before it lapses'
+    const undoBtn = await screen.findByRole('button', { name: `Undo: ${title}` }, { timeout: 5000 })
+    await userEvent.click(undoBtn)
+
+    await screen.findByText('Already processed by agent', undefined, { timeout: 5000 })
+    expect(screen.queryByText(title)).toBeNull()
+    // Informational only — no Undo action on this snackbar.
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
+  })
+
   it('snoozes a follow-up to next Monday from the snooze menu', { timeout: TEST_TIMEOUT }, async () => {
     await bootToToday()
     const snoozeBtn = await screen.findByRole(
