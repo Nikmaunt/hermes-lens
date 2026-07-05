@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import { useLocation } from 'react-router'
 import { Screen } from '@/components/Screen'
 import {
@@ -6,6 +6,7 @@ import {
   EmptyState,
   ErrorState,
   ListSkeleton,
+  SectionHeader,
   StaleBanner,
 } from '@/components/primitives'
 import { useSnackbar } from '@/components/SnackbarProvider'
@@ -19,10 +20,18 @@ import {
   type IconComponent,
 } from '@/components/icons'
 import { NoteText } from '@/components/NoteText'
+import { preferencesKV } from '@/data/kv'
 import { useInbox } from '@/hooks/queries'
 import { useTriage } from '@/hooks/mutations'
-import { relativeTime } from '@/lib/dates'
+import { relativeTime, toIsoDateTime } from '@/lib/dates'
+import { plainNoteText } from '@/lib/noteText'
 import { tapMedium } from '@/lib/haptics'
+import {
+  appendProcessingLog,
+  loadProcessingLog,
+  removeFromProcessingLog,
+  type ProcessingEntry,
+} from './processingLog'
 import type { InboxItem, TriageDestination } from '@/schemas'
 import { useSettings } from '@/settings/SettingsProvider'
 import type { SwipeMapping } from '@/settings/settings'
@@ -52,6 +61,16 @@ export function InboxScreen() {
     new Map<string, { timer: ReturnType<typeof setTimeout>; commit: () => void }>(),
   )
 
+  // Recently triaged notes (48 h sliding window in kv) — shown in the
+  // dimmed Processing section instead of vanishing on swipe.
+  const [processingLog, setProcessingLog] = useState<ProcessingEntry[]>([])
+  const refreshProcessing = useCallback(() => {
+    void loadProcessingLog(preferencesKV).then(setProcessingLog)
+  }, [])
+  useEffect(() => {
+    refreshProcessing()
+  }, [refreshProcessing])
+
   useEffect(() => {
     const map = pending.current
     return () => {
@@ -79,6 +98,13 @@ export function InboxScreen() {
     tapMedium() // gesture commit
     const destination = settings.swipeMapping[direction]
     setDecided((prev) => new Set(prev).add(item.id))
+    // The note lands in Processing right away; an undo pulls it back out.
+    void appendProcessingLog(preferencesKV, {
+      itemId: item.id,
+      text: item.text,
+      destination,
+      at: toIsoDateTime(new Date()),
+    }).then(refreshProcessing)
 
     // The triage call is delayed by the undo window; undo just cancels it.
     const commit = () => {
@@ -110,9 +136,16 @@ export function InboxScreen() {
           next.delete(item.id)
           return next
         })
+        void removeFromProcessingLog(preferencesKV, item.id).then(refreshProcessing)
       },
     })
   }
+
+  // Log entries whose item is hidden — either decided locally just now or
+  // already absent from the server payload. Items back in the deck (e.g. a
+  // dead-lettered triage) stay out of Processing.
+  const deckIds = new Set(deck.map((item) => item.id))
+  const processingRows = processingLog.filter((e) => !deckIds.has(e.itemId))
 
   return (
     <Screen title="Inbox" back>
@@ -168,6 +201,32 @@ export function InboxScreen() {
               )
             })}
           </div>
+        </>
+      )}
+
+      {processingRows.length > 0 && (
+        <>
+          <SectionHeader>Processing</SectionHeader>
+          {/* View-only: triage has no server-side undo, so no actions here. */}
+          <ul className="space-y-2 opacity-60">
+            {processingRows.map((entry) => {
+              const meta = DESTINATION_META[entry.destination]
+              return (
+                <li
+                  key={entry.itemId}
+                  className="border-line bg-surface flex min-h-11 items-center gap-3 rounded-(--radius-card) border p-3"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-muted">
+                    {plainNoteText(entry.text).split('\n')[0]}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1 text-caption text-faint">
+                    <meta.icon size={13} aria-hidden />
+                    {`→ ${meta.label}`}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
         </>
       )}
     </Screen>
