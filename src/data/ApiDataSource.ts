@@ -21,10 +21,13 @@ import {
   TimelineResponse,
   TodaySummary,
   TriageResponse,
+  UntriageResponse,
   type CaptureRequest,
   type FlagRequest,
   type FollowupActionRequest,
+  type FollowupUndoRequest,
   type HabitTickRequest,
+  type HabitUndoRequest,
   type SyncAckRequest,
   type TriageRequest,
 } from '@/schemas'
@@ -210,5 +213,23 @@ export class ApiDataSource implements DataSource {
 
   ackSync(req: SyncAckRequest): Promise<SyncAckResponse> {
     return this.request(SyncAckResponse, '/api/sync/ack', req)
+  }
+
+  undoFollowupAction(itemId: string): Promise<FollowupActionResponse> {
+    const body: FollowupUndoRequest = { action: 'undo' }
+    return this.request(
+      FollowupActionResponse,
+      `/api/followups/${encodeURIComponent(itemId)}/action`,
+      body,
+    )
+  }
+
+  undoHabitTick(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse> {
+    const body: HabitUndoRequest = { date: req.date, undo: true }
+    return this.request(HabitTickResponse, `/api/habits/${encodeURIComponent(itemId)}/tick`, body)
+  }
+
+  untriage(itemId: string): Promise<UntriageResponse> {
+    return this.request(UntriageResponse, `/api/inbox/${encodeURIComponent(itemId)}/untriage`, {})
   }
 }

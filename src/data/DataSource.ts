@@ -27,6 +27,7 @@ import type {
   TodaySummary,
   TriageRequest,
   TriageResponse,
+  UntriageResponse,
 } from '@/schemas'
 
 export interface TimelineParams {
@@ -64,4 +65,10 @@ export interface DataSource {
   followupAction(itemId: string, req: FollowupActionRequest): Promise<FollowupActionResponse>
   tickHabit(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse>
   ackSync(req: SyncAckRequest): Promise<SyncAckResponse>
+
+  // Undo endpoints: each cancels a still-unprocessed pending action.
+  // "gone" = the agent already handled it, nothing left to cancel.
+  undoFollowupAction(itemId: string): Promise<FollowupActionResponse>
+  undoHabitTick(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse>
+  untriage(itemId: string): Promise<UntriageResponse>
 }

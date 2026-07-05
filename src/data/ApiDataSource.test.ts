@@ -51,6 +51,41 @@ describe('ApiDataSource', () => {
     expect(init.body).toBe(JSON.stringify({ destination: 'note' }))
   })
 
+  it('POSTs {action:"undo"} to the followup action endpoint', async () => {
+    const spy = stubFetch(() => jsonResponse({ status: 'ok', itemId: 'fu-2' }))
+    const ds = new ApiDataSource('http://x', 't')
+    const res = await ds.undoFollowupAction('fu-2')
+
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://x/api/followups/fu-2/action')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({ action: 'undo' }))
+    expect(res).toEqual({ status: 'ok', itemId: 'fu-2' })
+  })
+
+  it('POSTs {date, undo:true} to the habit tick endpoint', async () => {
+    const spy = stubFetch(() => jsonResponse({ status: 'gone', itemId: 'habit-gym' }))
+    const ds = new ApiDataSource('http://x', 't')
+    const res = await ds.undoHabitTick('habit-gym', { date: '2026-07-05' })
+
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://x/api/habits/habit-gym/tick')
+    expect(init.body).toBe(JSON.stringify({ date: '2026-07-05', undo: true }))
+    expect(res).toEqual({ status: 'gone', itemId: 'habit-gym' })
+  })
+
+  it('POSTs an empty body to the untriage endpoint', async () => {
+    const spy = stubFetch(() => jsonResponse({ status: 'ok', itemId: 'in-1' }))
+    const ds = new ApiDataSource('http://x', 't')
+    const res = await ds.untriage('in-1')
+
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://x/api/inbox/in-1/untriage')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({}))
+    expect(res).toEqual({ status: 'ok', itemId: 'in-1' })
+  })
+
   it('throws ApiError with the status on non-2xx', async () => {
     stubFetch(() => jsonResponse({ error: 'nope' }, false, 401))
     const ds = new ApiDataSource('http://x', 'bad')

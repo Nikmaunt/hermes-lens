@@ -1,0 +1,14 @@
+{
+  "followupUndo": {
+    "ok": { "status": "ok", "itemId": "fu-2" },
+    "gone": { "status": "gone", "itemId": "fu-6" }
+  },
+  "habitUndo": {
+    "ok": { "status": "ok", "itemId": "habit-gym" },
+    "gone": { "status": "gone", "itemId": "habit-gym" }
+  },
+  "untriage": {
+    "ok": { "status": "ok", "itemId": "in-1" },
+    "gone": { "status": "gone", "itemId": "in-unknown" }
+  }
+}

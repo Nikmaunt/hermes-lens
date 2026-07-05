@@ -23,6 +23,17 @@ export const HabitTickRequest = z.object({
 })
 export type HabitTickRequest = z.infer<typeof HabitTickRequest>
 
+/**
+ * Cancels a still-pending tick for `date` on the same /tick endpoint. A date
+ * already written into the habit file (not pending) cannot be undone — the
+ * server answers "gone".
+ */
+export const HabitUndoRequest = z.object({
+  date: IsoDate,
+  undo: z.literal(true),
+})
+export type HabitUndoRequest = z.infer<typeof HabitUndoRequest>
+
 export const HabitTickResponse = z.object({
   /**
    * "ok" = queued (or already recorded); "gone" = the habit no longer

@@ -8,6 +8,16 @@ export const FollowupActionRequest = z.object({
 })
 export type FollowupActionRequest = z.infer<typeof FollowupActionRequest>
 
+/**
+ * Cancels a still-unprocessed pending done/snooze (the server deletes the
+ * queue file). Same endpoint as FollowupActionRequest; kept as a separate
+ * schema so the done/snooze enum stays untouched.
+ */
+export const FollowupUndoRequest = z.object({
+  action: z.literal('undo'),
+})
+export type FollowupUndoRequest = z.infer<typeof FollowupUndoRequest>
+
 export const FollowupActionResponse = z.object({
   /**
    * "ok" = queued for the agent; "gone" = the follow-up no longer exists
