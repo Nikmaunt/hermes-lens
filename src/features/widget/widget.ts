@@ -1,7 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { Preferences } from '@capacitor/preferences'
-import { dueLabel, formatTime, toIsoDateTime } from '@/lib/dates'
 import type { TodaySummary } from '@/schemas'
+import { composeWidgetSummary, type ComposeOptions } from './composeSummary'
 
 /**
  * Bridge to the native home-screen widget (see TodayWidgetProvider.java).
@@ -18,27 +18,14 @@ const WidgetBridge = registerPlugin<WidgetBridgePlugin>('WidgetBridge')
 const SUMMARY_KEY = 'widget:summary'
 
 /**
- * `masked` (Settings → "Hide widget details when locked", F11): the widget
- * shows no counts or deadline titles while app lock is on — the lock screen
- * of the phone should not leak what the app itself keeps behind biometrics.
+ * Compose and store the v2 widget summary (see composeSummary.ts for the
+ * contract), then ping the provider. `masked` in the options covers
+ * Settings → "Hide widget details when locked" (F11): no titles, counts or
+ * deadline leak to the launcher while app lock is on.
  */
-export async function updateTodayWidget(summary: TodaySummary, masked = false): Promise<void> {
+export async function updateTodayWidget(summary: TodaySummary, opts: ComposeOptions): Promise<void> {
   if (!Capacitor.isNativePlatform()) return
-  const nextDeadline = summary.deadlines[0]
-  const value = JSON.stringify(
-    masked
-      ? { masked: true, updatedAt: formatTime(toIsoDateTime(new Date())) }
-      : {
-          followUps: summary.followUps.length,
-          inbox: summary.inboxCount,
-          deadline:
-            nextDeadline !== undefined
-              ? `${nextDeadline.title} · ${dueLabel(nextDeadline.date)}`
-              : 'No deadlines in the next 30 days',
-          updatedAt: formatTime(toIsoDateTime(new Date())),
-        },
-  )
-  await Preferences.set({ key: SUMMARY_KEY, value })
+  await Preferences.set({ key: SUMMARY_KEY, value: JSON.stringify(composeWidgetSummary(summary, opts)) })
   try {
     await WidgetBridge.refresh()
   } catch {
