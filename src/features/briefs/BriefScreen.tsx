@@ -31,7 +31,7 @@ export function BriefScreen() {
             <span className="text-caption text-faint">{formatDate(data.date)}</span>
           </div>
           <h2 className="mt-3 text-title-lg leading-snug font-semibold">{data.title}</h2>
-          <NoteText text={data.markdown} className="mt-4 text-sm leading-relaxed" />
+          <NoteText text={data.markdown} className="mt-4 text-body leading-relaxed" />
           <div className="mt-6 text-caption text-faint">
             generated {formatDate(data.generatedAt)} at {formatTime(data.generatedAt)}
           </div>

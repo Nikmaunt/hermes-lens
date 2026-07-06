@@ -350,7 +350,7 @@ export function TodayScreen() {
                             </button>
                           </div>
                           {snoozeMenuFor === fu.id && (
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <div className="animate-expand mt-2 flex flex-wrap items-center gap-2">
                               <button
                                 onClick={() => act(fu, { action: 'snooze', until: snoozeTomorrow() })}
                                 className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"

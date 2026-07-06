@@ -54,7 +54,7 @@ function BriefRow({
   onTogglePin: () => void
 }) {
   return (
-    <div className="border-line bg-surface flex min-h-11 w-full items-center rounded-(--radius-card) border">
+    <div className="border-line bg-surface flex min-h-11 w-full items-center gap-2 rounded-(--radius-card) border">
       <button
         onClick={onOpen}
         className="active:bg-raised flex min-w-0 flex-1 items-center gap-2 self-stretch rounded-l-(--radius-card) py-4 pl-4 text-left transition-colors"
