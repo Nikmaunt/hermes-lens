@@ -118,3 +118,63 @@ describe('briefs', () => {
     },
   )
 })
+
+async function bootToBriefs() {
+  await bootToToday()
+  await userEvent.click(screen.getByText('More'))
+  await userEvent.click(await screen.findByText('Briefs', undefined, { timeout: 5000 }))
+  await waitFor(
+    () =>
+      expect(screen.getByText('Heads-up: lease cancel window opens soon')).toBeInTheDocument(),
+    { timeout: 5000 },
+  )
+}
+
+describe('briefs list upgrades', () => {
+  it('filters by kind with the All / Morning / Adhoc chips', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToBriefs()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Morning' }))
+    await waitFor(() =>
+      expect(screen.queryByText('Heads-up: lease cancel window opens soon')).toBeNull(),
+    )
+    expect(screen.getAllByText(/Morning brief/).length).toBeGreaterThanOrEqual(4)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Adhoc' }))
+    await waitFor(() =>
+      expect(screen.getByText('Heads-up: lease cancel window opens soon')).toBeInTheDocument(),
+    )
+    expect(screen.queryByText(/Morning brief — quiet day/)).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'All' }))
+    await waitFor(() =>
+      expect(screen.getByText(/Morning brief — quiet day/)).toBeInTheDocument(),
+    )
+    expect(screen.getByText('Heads-up: lease cancel window opens soon')).toBeInTheDocument()
+  })
+
+  it('mark all read clears every unread dot in the list', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToBriefs()
+    // Scoped to main: the BottomNav briefs dot refreshes on navigation, not
+    // live — the list itself must clear immediately.
+    const main = screen.getByRole('main')
+    await waitFor(() => expect(within(main).queryAllByLabelText('unread').length).toBeGreaterThan(0))
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mark all read' }))
+    await waitFor(() => expect(within(main).queryAllByLabelText('unread')).toHaveLength(0))
+  })
+
+  it('pinning lifts a brief into a Pinned section; unpinning returns it', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToBriefs()
+    const title = 'Morning brief — slow week so far'
+    const rowOf = () => screen.getByText(title).closest('div') as HTMLElement
+
+    await userEvent.click(within(rowOf()).getByRole('button', { name: 'Pin' }))
+    await waitFor(() => expect(screen.getByText('Pinned')).toBeInTheDocument())
+    expect(within(rowOf()).getByRole('button', { name: 'Unpin' })).toBeInTheDocument()
+
+    await userEvent.click(within(rowOf()).getByRole('button', { name: 'Unpin' }))
+    await waitFor(() => expect(screen.queryByText('Pinned')).toBeNull())
+    expect(within(rowOf()).getByRole('button', { name: 'Pin' })).toBeInTheDocument()
+  })
+})

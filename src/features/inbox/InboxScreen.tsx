@@ -254,7 +254,7 @@ export function InboxScreen() {
       {processingRows.length > 0 && (
         <>
           <SectionHeader>Processing</SectionHeader>
-          <ul className="space-y-2 opacity-60">
+          <ul className="space-y-2">
             {processingRows.map((entry) => {
               const meta = DESTINATION_META[entry.destination]
               return (
@@ -262,13 +262,16 @@ export function InboxScreen() {
                   key={entry.itemId}
                   className="border-line bg-surface flex min-h-11 items-center gap-3 rounded-(--radius-card) border p-3"
                 >
-                  <span className="min-w-0 flex-1 truncate text-sm text-muted">
-                    {plainNoteText(entry.text).split('\n')[0]}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1 text-caption text-faint">
-                    <meta.icon size={13} aria-hidden />
-                    {`→ ${meta.label}`}
-                  </span>
+                  {/* Content dims; the Undo affordance keeps full contrast. */}
+                  <div className="flex min-w-0 flex-1 items-center gap-3 opacity-60">
+                    <span className="min-w-0 flex-1 truncate text-sm text-muted">
+                      {plainNoteText(entry.text).split('\n')[0]}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-caption text-faint">
+                      <meta.icon size={13} aria-hidden />
+                      {`→ ${meta.label}`}
+                    </span>
+                  </div>
                   <button
                     onClick={() => undoProcessing(entry)}
                     className="text-accent flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold active:opacity-70"

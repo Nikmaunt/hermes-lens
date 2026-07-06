@@ -212,3 +212,19 @@ button {
   border-radius: var(--radius-card);
   transition: outline-color 0.4s var(--ease-emphasized-accelerate) 1.4s;
 }
+
+/*
+ * Reduced motion: entrance/reveal animations collapse to an instant state
+ * change; content is always visible without them. Color/opacity transitions
+ * elsewhere are ≤300ms state feedback and stay.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-expand,
+  .animate-flip-in {
+    animation: none;
+  }
+  .highlight-flash {
+    transition: none;
+  }
+}

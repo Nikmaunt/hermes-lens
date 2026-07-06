@@ -25,7 +25,7 @@ import { formatDate, formatDay, formatTime } from '@/lib/dates'
 import { snoozeNextMonday, snoozeTomorrow } from '@/lib/snooze'
 import { undoAction } from '@/lib/undo'
 import { eventTarget } from '@/lib/eventRoute'
-import type { FollowUp, FollowupActionRequest } from '@/schemas'
+import type { AgentStatus, FollowUp, FollowupActionRequest } from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
 
 const urgencyTone: Record<FollowUp['urgency'], DueTone> = {
@@ -93,7 +93,7 @@ export function TodayScreen() {
 
   const followupAction = useFollowupAction()
   const followupUndo = useFollowupUndo()
-  const { ds, queue } = useData()
+  const { ds, queue, cache } = useData()
   const queuedActions = useQueuedMutationsOf('followup-action')
   // Just-clicked actions, bridging the gap until the refetched payload
   // carries the server-side pendingAction (or the offline queue lists it).
@@ -192,10 +192,29 @@ export function TodayScreen() {
     localActions.get(fu.id) ??
     null
 
-  // Keep the home-screen widget in sync with what the user sees.
+  // Keep the home-screen widget in sync with what the user sees: same
+  // payload, same pending/gone exclusions, plus the health line from the
+  // last cached /api/status (the widget itself never hits the network).
   useEffect(() => {
-    if (data !== undefined) void updateTodayWidget(data, maskWidget)
-  }, [data, maskWidget])
+    if (data === undefined) return
+    let alive = true
+    void cache.read<AgentStatus>(`${ds.kind}:status`).then((cached) => {
+      if (!alive) return
+      const pendingIds = new Set<string>([
+        ...queuedActions.map((m) => m.itemId),
+        ...localActions.keys(),
+        ...goneIds,
+      ])
+      void updateTodayWidget(data, {
+        status: cached?.payload ?? null,
+        pendingIds,
+        masked: maskWidget,
+      })
+    })
+    return () => {
+      alive = false
+    }
+  }, [data, maskWidget, cache, ds.kind, queuedActions, localActions, goneIds])
 
   // Client-only read state for the brief card's unread dot.
   const [readBriefIds, setReadBriefIds] = useState<ReadonlySet<string>>(new Set())
@@ -331,7 +350,7 @@ export function TodayScreen() {
                             </button>
                           </div>
                           {snoozeMenuFor === fu.id && (
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <div className="animate-expand mt-2 flex flex-wrap items-center gap-2">
                               <button
                                 onClick={() => act(fu, { action: 'snooze', until: snoozeTomorrow() })}
                                 className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"

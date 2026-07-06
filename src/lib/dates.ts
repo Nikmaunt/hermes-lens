@@ -47,6 +47,12 @@ export function formatDay(iso: string): string {
   return `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`
 }
 
+/** "4 Jul" — compact day+month for tight one-line contexts (widget). */
+export function formatDayMonth(iso: string): string {
+  const d = iso.length > 10 ? new Date(iso) : parseIsoDate(iso)
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`
+}
+
 /** "4 Jul 2026" */
 export function formatDate(iso: string): string {
   const d = iso.length > 10 ? new Date(iso) : parseIsoDate(iso)

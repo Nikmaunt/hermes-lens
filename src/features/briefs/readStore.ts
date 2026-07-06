@@ -26,3 +26,15 @@ export async function markBriefRead(kv: KV, id: string): Promise<ReadonlySet<str
   }
   return read
 }
+
+/** "Mark all read": union the listed ids into the read-set in one write. */
+export async function markAllBriefsRead(
+  kv: KV,
+  ids: Iterable<string>,
+): Promise<ReadonlySet<string>> {
+  const read = new Set(await loadReadBriefIds(kv))
+  const before = read.size
+  for (const id of ids) read.add(id)
+  if (read.size > before) await kv.set(KEY, JSON.stringify([...read]))
+  return read
+}
