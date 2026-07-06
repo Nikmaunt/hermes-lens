@@ -3,6 +3,15 @@ dist/
 *.local
 .DS_Store
 
+# Local agent/design tooling — never part of the app
+.claude/
+.agents/
+.impeccable/
+.idea/
+skills-lock.json
+PRODUCT.md
+DESIGN.md
+
 # Android build outputs (native project itself is committed)
 android/.gradle/
 android/app/build/
