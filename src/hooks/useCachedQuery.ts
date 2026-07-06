@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { ApiError, type ApiErrorKind } from '@/data/ApiDataSource'
 import { useData } from '@/data/DataSourceProvider'
@@ -17,8 +17,23 @@ function kindOf(err: unknown): QueryErrorKind {
   return err instanceof ApiError ? err.kind : 'unknown'
 }
 
-/** Background revalidations in flight, deduped per cache key. */
-const inflight = new Map<string, Promise<void>>()
+/**
+ * Background revalidations in flight, deduped per cache key — but scoped to
+ * the owning QueryClient. A module-global map outlives an app reboot (test
+ * boots, hot reload): the new screen would adopt a job whose setQueryData
+ * writes into the previous, dead QueryClient, and the fresh payload would
+ * never reach the new query. Keyed weakly so dead clients drop their jobs.
+ */
+const inflightByClient = new WeakMap<QueryClient, Map<string, Promise<void>>>()
+
+function inflightFor(client: QueryClient): Map<string, Promise<void>> {
+  let map = inflightByClient.get(client)
+  if (map === undefined) {
+    map = new Map()
+    inflightByClient.set(client, map)
+  }
+  return map
+}
 
 /**
  * Stale-while-revalidate over the persistent last-good-payload cache (F2):
@@ -35,6 +50,7 @@ export function useCachedQuery<T>(key: string, fetcher: () => Promise<T>) {
   const queryKey = [ds.kind, key]
 
   const revalidate = useCallback((): Promise<void> => {
+    const inflight = inflightFor(queryClient)
     let job = inflight.get(cacheKey)
     if (job === undefined) {
       job = (async () => {
