@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget palette, light theme. Values mirror the app's design tokens in
+  src/styles/global.css (html.light block) — RemoteViews cannot read CSS,
+  so the tokens are transcribed here. Dark lives in values-night/.
+  Dim (badge fill) colors are the token rgba() values as ARGB hex.
+-->
+<resources>
+    <color name="widget_bg">#F2FFFFFF</color>
+    <color name="widget_line">#E2E5EC</color>
+    <color name="widget_ink">#191D28</color>
+    <color name="widget_muted">#5F6880</color>
+    <color name="widget_faint">#9AA2B5</color>
+    <color name="widget_raised">#E8EBF2</color>
+    <color name="widget_accent">#A3740F</color>
+    <color name="widget_accent_dim">#1FA3740F</color>
+    <color name="widget_overdue">#A85C52</color>
+    <color name="widget_overdue_dim">#1FA85C52</color>
+    <color name="widget_ok">#2E7D4F</color>
+    <color name="widget_warn">#A8690B</color>
+</resources>

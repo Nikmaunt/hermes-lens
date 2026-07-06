@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget palette, dark theme — the app's default token set (:root in
+  src/styles/global.css). Keep in sync with values/widget_colors.xml.
+-->
+<resources>
+    <color name="widget_bg">#F20B0D12</color>
+    <color name="widget_line">#232A3A</color>
+    <color name="widget_ink">#E9ECF4</color>
+    <color name="widget_muted">#98A2B8</color>
+    <color name="widget_faint">#5C6579</color>
+    <color name="widget_raised">#1A2030</color>
+    <color name="widget_accent">#E3B458</color>
+    <color name="widget_accent_dim">#21E3B458</color>
+    <color name="widget_overdue">#CF837A</color>
+    <color name="widget_overdue_dim">#29CF837A</color>
+    <color name="widget_ok">#57B47C</color>
+    <color name="widget_warn">#E2A33C</color>
+</resources>
