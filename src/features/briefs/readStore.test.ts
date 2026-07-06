@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MemoryKV } from '@/data/kv'
-import { loadReadBriefIds, markBriefRead } from './readStore'
+import { loadReadBriefIds, markAllBriefsRead, markBriefRead } from './readStore'
 
 /*
  * Read/unread is a client-only concept: an id-set in the kv layer under
@@ -42,5 +42,23 @@ describe('briefs read-set', () => {
     // And recovers on the next write.
     await markBriefRead(kv, 'brief-a')
     expect((await loadReadBriefIds(kv)).has('brief-a')).toBe(true)
+  })
+
+  it('mark-all merges the given ids with what was already read', async () => {
+    const kv = new MemoryKV()
+    await markBriefRead(kv, 'brief-old')
+    const read = await markAllBriefsRead(kv, ['brief-a', 'brief-b'])
+    expect(read.has('brief-old')).toBe(true)
+    expect(read.has('brief-a')).toBe(true)
+    expect(read.has('brief-b')).toBe(true)
+    expect((await loadReadBriefIds(kv)).size).toBe(3)
+  })
+
+  it('mark-all with no new ids is a no-op write-wise', async () => {
+    const kv = new MemoryKV()
+    await markBriefRead(kv, 'brief-a')
+    const read = await markAllBriefsRead(kv, ['brief-a'])
+    expect(read.size).toBe(1)
+    expect(JSON.parse((await kv.get('briefs:read')) ?? '[]')).toEqual(['brief-a'])
   })
 })
