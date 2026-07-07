@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.SizeF;
 import android.widget.RemoteViews;
 
@@ -36,6 +37,7 @@ import java.util.Map;
  */
 public class TodayWidgetProvider extends AppWidgetProvider {
 
+    private static final String TAG = "TodayWidget";
     private static final String PREFS_FILE = "CapacitorStorage";
     private static final String SUMMARY_KEY = "widget:summary";
 
@@ -97,6 +99,9 @@ public class TodayWidgetProvider extends AppWidgetProvider {
         try {
             manager.updateAppWidget(widgetId, buildViews(context, manager, widgetId));
         } catch (Throwable t) {
+            // Leave a diagnostic trail: a silent widget failure is exactly what
+            // masked this crash for so long.
+            Log.w(TAG, "widget update failed; showing fallback", t);
             try {
                 manager.updateAppWidget(widgetId, fallbackViews(context));
             } catch (Throwable ignored) {
