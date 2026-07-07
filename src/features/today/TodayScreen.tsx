@@ -246,26 +246,44 @@ export function TodayScreen() {
           )}
         {data !== undefined && (
           <>
-            {data.brief !== undefined && (
-              <Card
-                onClick={() => void navigate(`/briefs/${encodeURIComponent(data.brief?.id ?? '')}`)}
-                className="mb-1"
-              >
-                <div className="flex items-center gap-3">
+            {data.brief !== undefined &&
+              (readBriefIds.has(data.brief.id) ? (
+                // Once read, the brief stops owning the top of Today: it folds
+                // into a thin one-line strip until a new, unread brief lands.
+                <button
+                  onClick={() =>
+                    void navigate(`/briefs/${encodeURIComponent(data.brief?.id ?? '')}`)
+                  }
+                  className="mb-1 flex min-h-11 w-full items-center gap-2 px-1 text-left active:opacity-70"
+                >
                   <span className="text-faint" aria-hidden>
-                    <NewspaperIcon size={20} />
+                    <NewspaperIcon size={15} />
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      {!readBriefIds.has(data.brief.id) && <UnreadDot />}
-                      <span className="truncate text-sm font-semibold">{data.brief.title}</span>
+                  <span className="flex-1 truncate text-xs text-faint">Morning brief · read</span>
+                  <ChevronRightIcon size={12} className="shrink-0 text-faint" aria-hidden />
+                </button>
+              ) : (
+                <Card
+                  onClick={() =>
+                    void navigate(`/briefs/${encodeURIComponent(data.brief?.id ?? '')}`)
+                  }
+                  className="mb-1"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-faint" aria-hidden>
+                      <NewspaperIcon size={20} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <UnreadDot />
+                        <span className="truncate text-sm font-semibold">{data.brief.title}</span>
+                      </div>
+                      <div className="mt-0.5 text-xs text-faint">today's brief</div>
                     </div>
-                    <div className="mt-0.5 text-xs text-faint">today's brief</div>
+                    <ChevronRightIcon size={13} className="shrink-0 text-faint" aria-hidden />
                   </div>
-                  <ChevronRightIcon size={13} className="shrink-0 text-faint" aria-hidden />
-                </div>
-              </Card>
-            )}
+                </Card>
+              ))}
             {data.inboxCount > 0 && (
               <Card onClick={() => void navigate('/inbox')} className="mb-1">
                 <div className="flex items-center justify-between">
