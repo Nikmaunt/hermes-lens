@@ -49,11 +49,6 @@ export function useHabits() {
   return useCachedQuery('habits', () => ds.getHabits())
 }
 
-export function usePolishWords() {
-  const { ds } = useData()
-  return useCachedQuery('polish-words', () => ds.getPolishWords())
-}
-
 export function useInbox() {
   const { ds } = useData()
   return useCachedQuery('inbox', () => ds.getInbox())
