@@ -16,6 +16,7 @@ import { useHabitTick, useHabitUndo, useQueuedMutationsOf } from '@/hooks/mutati
 import { addDays, parseIsoDate, toIsoDate } from '@/lib/dates'
 import { bestStreak, completionRate, currentStreak } from '@/lib/streaks'
 import { undoAction } from '@/lib/undo'
+import { habitGoneMessage } from '@/lib/goneOutcome'
 import type { Habit } from '@/schemas'
 
 const WEEKS_SHOWN = 12
@@ -68,7 +69,7 @@ export function HabitsScreen() {
       if (gone) {
         // The date is already written into the habit file — the tick stands.
         setLocalUnticked((prev) => without(prev, habit.id))
-        snackbar.show({ message: 'Already processed by agent' })
+        snackbar.show({ message: habitGoneMessage })
       }
     })
   }

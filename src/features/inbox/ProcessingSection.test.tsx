@@ -100,11 +100,12 @@ describe('inbox Processing section', () => {
   )
 
   it(
-    'undo on an already-processed entry says so and drops the row',
+    'undo on an already-processed entry explains the outcome and links to it',
     { timeout: TEST_TIMEOUT },
     async () => {
       // gone-1 (seeded in the first test) was never triaged in this mock —
       // exactly the "agent already handled it" case: untriage answers gone.
+      // Its destination was memory, so the toast says so and links there.
       await bootToInbox()
       const row = (await screen.findByText('Note already shipped to the vault', undefined, {
         timeout: 5000,
@@ -112,11 +113,13 @@ describe('inbox Processing section', () => {
       expect(row).not.toBeNull()
       await userEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Undo' }))
 
-      await screen.findByText('Already processed by agent', undefined, { timeout: 5000 })
-      await waitFor(
-        () => expect(screen.queryByText('Note already shipped to the vault')).toBeNull(),
-        { timeout: 5000 },
-      )
+      // Honest, destination-aware copy instead of a blank "already processed".
+      await screen.findByText('The agent already saved this to memory', undefined, { timeout: 5000 })
+      // The snackbar links to where the note landed; following it opens Memory.
+      await userEvent.click(await screen.findByRole('button', { name: 'Open Memory' }))
+      expect(
+        await screen.findByLabelText('Memory map', undefined, { timeout: 5000 }),
+      ).toBeInTheDocument()
       // Let the invalidation-triggered background refetch finish before the
       // next test boots — the revalidation dedup map is module-level and a
       // straggler job would swallow the next boot's refresh.
@@ -170,7 +173,7 @@ describe('inbox Processing section', () => {
         () => expect(screen.getByText(`${before + 1} to triage`)).toBeInTheDocument(),
         { timeout: 5000 },
       )
-      expect(screen.queryByText('Already processed by agent')).toBeNull()
+      expect(screen.queryByText(/The agent already/)).toBeNull()
     },
   )
 

@@ -24,6 +24,7 @@ import { useSettings } from '@/settings/SettingsProvider'
 import { formatDate, formatDay, formatTime } from '@/lib/dates'
 import { snoozeNextMonday, snoozeTomorrow } from '@/lib/snooze'
 import { undoAction } from '@/lib/undo'
+import { followupGoneMessage } from '@/lib/goneOutcome'
 import { eventTarget } from '@/lib/eventRoute'
 import type { AgentStatus, FollowUp, FollowupActionRequest } from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
@@ -134,7 +135,7 @@ export function TodayScreen() {
           // The agent already handled the original action — drop the card
           // quietly and let the refetch settle the rest.
           setGoneIds((prev) => new Set(prev).add(fu.id))
-          snackbar.show({ message: 'Already processed by agent' })
+          snackbar.show({ message: followupGoneMessage })
         }
       },
     )

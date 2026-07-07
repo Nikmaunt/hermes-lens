@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import {
   Badge,
@@ -28,6 +28,7 @@ import { relativeTime, toIsoDateTime } from '@/lib/dates'
 import { plainNoteText } from '@/lib/noteText'
 import { tapMedium } from '@/lib/haptics'
 import { undoAction } from '@/lib/undo'
+import { triageGoneOutcome } from '@/lib/goneOutcome'
 import {
   appendProcessingLog,
   loadProcessingLog,
@@ -58,6 +59,7 @@ export function InboxScreen() {
   const untriage = useUntriage()
   const { ds, queue } = useData()
   const snackbar = useSnackbar()
+  const navigate = useNavigate()
 
   // Local deck: server items minus locally-decided ones (optimistic).
   const [decided, setDecided] = useState<Set<string>>(new Set())
@@ -176,7 +178,18 @@ export function InboxScreen() {
         snackbar.show({ message: 'Offline — undo queued for sync' })
         return
       }
-      if (gone) snackbar.show({ message: 'Already processed by agent' })
+      if (gone) {
+        // Say what the agent did with the note and, when it landed on another
+        // screen, offer to go see it — recovered from the triage's destination.
+        const outcome = triageGoneOutcome(entry.destination)
+        const link = outcome.link
+        snackbar.show({
+          message: outcome.message,
+          ...(link !== undefined
+            ? { actionLabel: link.label, onAction: () => void navigate(link.route) }
+            : {}),
+        })
+      }
       // ok → the note is back in the inbox (refetch); gone → it is the
       // agent's now. Either way the entry leaves Processing.
       setDecided((prev) => {

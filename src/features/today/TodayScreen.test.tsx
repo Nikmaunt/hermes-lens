@@ -114,7 +114,7 @@ describe('follow-up actions on Today', () => {
     )
   })
 
-  it('shows an Undo button on a syncing card; gone answers "Already processed by agent"', { timeout: TEST_TIMEOUT }, async () => {
+  it('shows an Undo button on a syncing card; gone explains the agent resolved it', { timeout: TEST_TIMEOUT }, async () => {
     await bootToToday()
     // fu-6 ships with a server-side pendingAction: its queue file is out of
     // reach, so an undo comes back "gone" and the card is quietly dropped.
@@ -122,7 +122,7 @@ describe('follow-up actions on Today', () => {
     const undoBtn = await screen.findByRole('button', { name: `Undo: ${title}` }, { timeout: 5000 })
     await userEvent.click(undoBtn)
 
-    await screen.findByText('Already processed by agent', undefined, { timeout: 5000 })
+    await screen.findByText('The agent already resolved this follow-up', undefined, { timeout: 5000 })
     expect(screen.queryByText(title)).toBeNull()
     // Informational only — no Undo action on this snackbar.
     expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull()
