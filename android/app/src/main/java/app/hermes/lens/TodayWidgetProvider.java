@@ -88,30 +88,68 @@ public class TodayWidgetProvider extends AppWidgetProvider {
     }
 
     private static void update(Context context, AppWidgetManager manager, int widgetId) {
+        // Defense-in-depth: a widget must never take down its host. This runs
+        // both from the AppWidget receiver (onUpdate) and, via
+        // WidgetBridgePlugin.refresh → updateAll, on the app's own bridge
+        // thread — so an unhandled RuntimeException here crashes not just the
+        // widget but the whole app. Any build failure degrades to a minimal
+        // fallback; if even that fails we swallow it rather than propagate.
+        try {
+            manager.updateAppWidget(widgetId, buildViews(context, manager, widgetId));
+        } catch (Throwable t) {
+            try {
+                manager.updateAppWidget(widgetId, fallbackViews(context));
+            } catch (Throwable ignored) {
+                // Nothing more can be done safely; never propagate to the host.
+            }
+        }
+    }
+
+    private static RemoteViews buildViews(Context context, AppWidgetManager manager, int widgetId) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE);
         Summary s = parse(prefs.getString(SUMMARY_KEY, null));
+        PendingIntent open = openAppIntent(context);
 
-        RemoteViews views;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // The launcher picks the tightest layout for the current cell size.
+            // The click intent MUST be attached to each child BEFORE they are
+            // combined: setOnClickPendingIntent on the Map-composed RemoteViews
+            // throws (it is immutable after construction), and unhandled that
+            // exception killed the whole app on API 31+.
+            RemoteViews compactView = renderCompact(context, s);
+            compactView.setOnClickPendingIntent(R.id.widget_root, open);
+            RemoteViews fullView = renderFull(context, s);
+            fullView.setOnClickPendingIntent(R.id.widget_root, open);
+
             Map<SizeF, RemoteViews> sizes = new HashMap<>();
-            sizes.put(new SizeF(180f, 40f), renderCompact(context, s));
-            sizes.put(new SizeF(180f, (float) COMPACT_MAX_HEIGHT_DP), renderFull(context, s));
-            views = new RemoteViews(sizes);
-        } else {
-            Bundle options = manager.getAppWidgetOptions(widgetId);
-            int minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT);
-            boolean compact = minHeight > 0 && minHeight < COMPACT_MAX_HEIGHT_DP;
-            views = compact ? renderCompact(context, s) : renderFull(context, s);
+            sizes.put(new SizeF(180f, 40f), compactView);
+            sizes.put(new SizeF(180f, (float) COMPACT_MAX_HEIGHT_DP), fullView);
+            return new RemoteViews(sizes);
         }
 
+        Bundle options = manager.getAppWidgetOptions(widgetId);
+        int minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT);
+        boolean compact = minHeight > 0 && minHeight < COMPACT_MAX_HEIGHT_DP;
+        RemoteViews views = compact ? renderCompact(context, s) : renderFull(context, s);
+        views.setOnClickPendingIntent(R.id.widget_root, open);
+        return views;
+    }
+
+    /** Minimal never-fail widget used only when {@link #buildViews} throws. */
+    private static RemoteViews fallbackViews(Context context) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_today_compact);
+        views.setTextViewText(R.id.widget_compact_line, "Open the app to sync");
+        views.setViewVisibility(R.id.widget_compact_dot, android.view.View.GONE);
+        views.setTextViewText(R.id.widget_compact_updated, "");
+        views.setOnClickPendingIntent(R.id.widget_root, openAppIntent(context));
+        return views;
+    }
+
+    private static PendingIntent openAppIntent(Context context) {
         Intent open = new Intent(context, MainActivity.class);
-        PendingIntent pending = PendingIntent.getActivity(
+        return PendingIntent.getActivity(
                 context, 0, open,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        views.setOnClickPendingIntent(R.id.widget_root, pending);
-
-        manager.updateAppWidget(widgetId, views);
     }
 
     // ---------------------------------------------------------------- parse
