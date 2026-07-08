@@ -314,6 +314,58 @@ describe('mock fixtures honor the API contract', () => {
     expect(await fresh.untriage('in-unknown')).toEqual({ status: 'gone', itemId: 'in-unknown' })
   })
 
+  it('runs a deterministic chat turn from running to done (mock)', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const started = await fresh.startChat({ message: 'who am I?', clientId: 'chat-1' })
+    expect(started.status).toBe('running')
+    expect(started.jobId.length).toBeGreaterThan(0)
+    expect(started.sessionId.length).toBeGreaterThan(0)
+
+    // First poll: the agent is still thinking (30–120s live; instant here).
+    const first = await fresh.getChatJob(started.jobId)
+    expect(first.status).toBe('running')
+    expect(first.reply).toBeUndefined()
+
+    // A later poll resolves with the full reply in one shot — no streaming.
+    const done = await fresh.getChatJob(started.jobId)
+    expect(done.status).toBe('done')
+    expect(done.reply).toBeTruthy()
+    expect(done.finishedAt).toBeTruthy()
+    expect(done.tokensUsed ?? 0).toBeGreaterThan(0) // cost meter present once it ran
+
+    // Polling a resolved job keeps returning the same terminal answer.
+    const again = await fresh.getChatJob(started.jobId)
+    expect(again).toEqual(done)
+  })
+
+  it('deduplicates a chat turn replayed with the same clientId (D-A8)', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const first = await fresh.startChat({ message: 'ping', clientId: 'chat-dup' })
+    const replay = await fresh.startChat({ message: 'ping', clientId: 'chat-dup' })
+    expect(replay).toEqual(first) // same jobId + sessionId, no second turn started
+
+    // A distinct clientId is a genuinely new turn with its own job.
+    const other = await fresh.startChat({ message: 'ping', clientId: 'chat-other' })
+    expect(other.jobId).not.toBe(first.jobId)
+  })
+
+  it('reuses the sessionId across turns, mints one for the first (D-A7)', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const first = await fresh.startChat({ message: 'turn one', clientId: 'c1' })
+    const second = await fresh.startChat({
+      message: 'turn two',
+      clientId: 'c2',
+      sessionId: first.sessionId,
+    })
+    expect(second.sessionId).toBe(first.sessionId)
+    expect(second.jobId).not.toBe(first.jobId)
+  })
+
+  it('rejects an unknown chat jobId like the server 404s', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    await expect(fresh.getChatJob('job-nope')).rejects.toThrow()
+  })
+
   it('search never leaks sensitive memory content', async () => {
     // "refill" appears only inside a sensitive fact (not in any topic) —
     // content of sensitive items must not be searchable at all.

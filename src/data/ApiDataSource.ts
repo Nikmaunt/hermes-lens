@@ -4,6 +4,8 @@ import {
   BriefDetail,
   BriefsResponse,
   CaptureResponse,
+  ChatJobResponse,
+  ChatStartResponse,
   DecisionsResponse,
   DocumentsResponse,
   FlagResponse,
@@ -23,6 +25,7 @@ import {
   TriageResponse,
   UntriageResponse,
   type CaptureRequest,
+  type ChatStartRequest,
   type FlagRequest,
   type FollowupActionRequest,
   type FollowupUndoRequest,
@@ -231,5 +234,18 @@ export class ApiDataSource implements DataSource {
 
   untriage(itemId: string): Promise<UntriageResponse> {
     return this.request(UntriageResponse, `/api/inbox/${encodeURIComponent(itemId)}/untriage`, {})
+  }
+
+  startChat(req: ChatStartRequest): Promise<ChatStartResponse> {
+    // Body present → POST. The agent thinks for 30–120s but this call only
+    // *starts* the turn and returns immediately, so the 4s timeout is safe.
+    return this.request(ChatStartResponse, '/api/chat', req)
+  }
+
+  getChatJob(jobId: string): Promise<ChatJobResponse> {
+    // No body → GET. Each poll answers at once; an unknown/expired jobId comes
+    // back as a 404, surfaced as ApiError(kind:'server', status:404) for the
+    // caller's expiry handling (D-A6).
+    return this.request(ChatJobResponse, `/api/chat/${encodeURIComponent(jobId)}`)
   }
 }

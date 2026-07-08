@@ -4,6 +4,9 @@ import {
   BriefsResponse,
   CaptureRequest,
   CaptureResponse,
+  ChatJobResponse,
+  ChatStartRequest,
+  ChatStartResponse,
   DecisionsResponse,
   DocumentsResponse,
   FlagRequest,
@@ -57,6 +60,30 @@ import briefsFixture from './mock/fixtures/briefs.json'
 
 const TIMELINE_PAGE_SIZE = 25
 
+/**
+ * A Demo chat turn, evolving in place: it starts "running" and flips to "done"
+ * once polled past the think budget, so Demo mode exercises the same poll loop
+ * as the live sidecar. Persisted (JSON) so a killed-and-reopened Demo app can
+ * re-attach to an in-flight job by its saved jobId (D-A6).
+ */
+interface MockChatJob {
+  jobId: string
+  sessionId: string
+  clientId: string
+  message: string
+  /** How many times getChatJob has been called for this job. */
+  polls: number
+  /** Filled once the job resolves; stable across further polls. */
+  reply?: string
+  finishedAt?: string
+  tokensUsed?: number
+}
+
+/** GET polls that still read "running" before the mock job resolves to "done". */
+const MOCK_CHAT_THINK_POLLS = 1
+/** Cap on retained Demo jobs so the overlay ledger cannot grow without bound. */
+const MOCK_CHAT_JOB_LIMIT = 20
+
 /** User actions replayed on top of the fixtures so they survive restarts. */
 interface MockOverlay {
   capturedItems: InboxItem[]
@@ -68,6 +95,12 @@ interface MockOverlay {
   followupActions: Record<string, FollowUpPendingAction>
   /** habitId → extra completed dates ticked from the app. */
   habitTicks: Record<string, string[]>
+  /** clientId → the first turn's start response, for server-dedup parity (D-A8). */
+  chatClientIds: Record<string, ChatStartResponse>
+  /** jobId → the evolving Demo job state. */
+  chatJobs: Record<string, MockChatJob>
+  /** Monotonic counter minting collision-free Demo job/session ids. */
+  chatSeq: number
 }
 
 const EMPTY_OVERLAY: MockOverlay = {
@@ -77,6 +110,9 @@ const EMPTY_OVERLAY: MockOverlay = {
   captureClientIds: {},
   followupActions: {},
   habitTicks: {},
+  chatClientIds: {},
+  chatJobs: {},
+  chatSeq: 0,
 }
 const OVERLAY_KEY = 'mock:overlay'
 
@@ -519,5 +555,69 @@ export class MockDataSource implements DataSource {
     this.overlay.triagedIds = this.overlay.triagedIds.filter((id) => id !== itemId)
     await this.saveOverlay()
     return { status: 'ok', itemId }
+  }
+
+  async startChat(req: ChatStartRequest): Promise<ChatStartResponse> {
+    await this.ready()
+    // Idempotent replay: a clientId we have already accepted returns the
+    // original start response — same jobId, no second turn — mirroring the
+    // server-side dedup contract (D-A8).
+    const previous = this.overlay.chatClientIds[req.clientId]
+    if (previous !== undefined) return previous
+
+    const seq = this.overlay.chatSeq
+    this.overlay.chatSeq = seq + 1
+    const jobId = `job-mock-${seq}`
+    // First turn mints a session; later turns continue the one they carry (D-A7).
+    const sessionId = req.sessionId ?? `sess-mock-${seq}`
+    const response: ChatStartResponse = { jobId, sessionId, status: 'running' }
+    this.overlay.chatJobs[jobId] = {
+      jobId,
+      sessionId,
+      clientId: req.clientId,
+      message: req.message,
+      polls: 0,
+    }
+    this.overlay.chatClientIds[req.clientId] = response
+    this.pruneChatJobs()
+    await this.saveOverlay()
+    return response
+  }
+
+  async getChatJob(jobId: string): Promise<ChatJobResponse> {
+    await this.ready()
+    const job = this.overlay.chatJobs[jobId]
+    // Mirrors the server's 404 on an unknown or TTL-expired jobId.
+    if (job === undefined) throw new Error(`Chat job not found: ${jobId}`)
+
+    job.polls += 1
+    if (job.polls <= MOCK_CHAT_THINK_POLLS) {
+      await this.saveOverlay()
+      return { jobId: job.jobId, status: 'running' }
+    }
+    // Resolve once, on the first poll past the think budget; the answer is then
+    // stable across any further polls (one-shot reply, no streaming).
+    if (job.reply === undefined) {
+      job.reply = `(Demo) You asked: “${job.message}”. Connect the agent for a real answer.`
+      job.finishedAt = toIsoDateTime(new Date())
+      job.tokensUsed = 128
+    }
+    await this.saveOverlay()
+    return {
+      jobId: job.jobId,
+      status: 'done',
+      reply: job.reply,
+      finishedAt: job.finishedAt,
+      tokensUsed: job.tokensUsed,
+    }
+  }
+
+  /** Keep only the most recently started jobs (insertion order) in the ledger. */
+  private pruneChatJobs(): void {
+    const ids = Object.keys(this.overlay.chatJobs)
+    if (ids.length <= MOCK_CHAT_JOB_LIMIT) return
+    for (const id of ids.slice(0, ids.length - MOCK_CHAT_JOB_LIMIT)) {
+      delete this.overlay.chatJobs[id]
+    }
   }
 }

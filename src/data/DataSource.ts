@@ -4,6 +4,9 @@ import type {
   BriefsResponse,
   CaptureRequest,
   CaptureResponse,
+  ChatJobResponse,
+  ChatStartRequest,
+  ChatStartResponse,
   DecisionsResponse,
   DocumentsResponse,
   EventCategory,
@@ -71,4 +74,12 @@ export interface DataSource {
   undoFollowupAction(itemId: string): Promise<FollowupActionResponse>
   undoHabitTick(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse>
   untriage(itemId: string): Promise<UntriageResponse>
+
+  // Chat with the Hermes agent (Release A). Two-step: startChat accepts a turn
+  // and returns a running jobId; getChatJob polls it to done/error. Deliberately
+  // NOT routed through the mutation queue — a blind offline replay would start a
+  // second turn and lose the reply, so the chat path calls startChat directly
+  // (D-A9). A poll of an unknown/TTL-expired jobId rejects like the server's 404.
+  startChat(req: ChatStartRequest): Promise<ChatStartResponse>
+  getChatJob(jobId: string): Promise<ChatJobResponse>
 }
