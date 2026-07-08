@@ -55,6 +55,9 @@ const StatusScreen = lazy(() =>
 const SettingsScreen = lazy(() =>
   import('./features/settings/SettingsScreen').then((m) => ({ default: m.SettingsScreen })),
 )
+const ChatScreen = lazy(() =>
+  import('./features/chat/ChatScreen').then((m) => ({ default: m.ChatScreen })),
+)
 
 function Shell() {
   const navigate = useNavigate()
@@ -110,6 +113,7 @@ function Root() {
                 <Route path="/memory" element={<MemoryScreen />} />
                 <Route path="/memory/map" element={<MemoryMapScreen />} />
                 <Route path="/capture" element={<CaptureScreen />} />
+                <Route path="/chat" element={<ChatScreen />} />
                 <Route path="/inbox" element={<InboxScreen />} />
                 <Route path="/projects" element={<ProjectsScreen />} />
                 <Route path="/people" element={<PeopleScreen />} />

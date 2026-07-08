@@ -21,7 +21,7 @@ interface StartInput {
 }
 
 export interface ChatController {
-  /** The in-flight (or last, until acknowledged) turn, or null when idle. */
+  /** The accepted (or last, until dismissed) turn being polled, or null when idle. */
   active: ActiveChatTurn | null
   /** Poll view of `active`. Meaningful only while `active` is non-null. */
   view: ChatTurnView
@@ -29,14 +29,14 @@ export interface ChatController {
   sending: boolean
   /** The POST itself failed (offline/unreachable). Never queued (D-A9). */
   sendError: ChatErrorReason | null
+  /** Message of the current attempt, before/independent of an accepted jobId. */
+  attempted: string | null
   /** Start a new turn. sessionId continues the rolling session (D-A7). */
   send: (message: string, sessionId?: string) => void
   /** Re-send the last turn with the SAME clientId → server dedup (D-A8). */
   retry: () => void
-  /** Clear the "send failed" banner. */
-  dismissError: () => void
-  /** Drop the resolved turn once the screen has moved it into the transcript. */
-  acknowledge: () => void
+  /** Free the pending slot (turn moved to transcript, or error acknowledged). */
+  dismiss: () => void
 }
 
 /**
@@ -47,33 +47,27 @@ export interface ChatController {
  * refetchInterval); on any terminal view it clears the persisted handle so a
  * later reattach never re-polls a finished or dead job.
  */
-export function useChatController(opts?: {
-  onTurnDone?: (userMessage: string, reply: string, tokensUsed: number | null) => void
-}): ChatController {
+export function useChatController(): ChatController {
   const { ds } = useData()
   const queryClient = useQueryClient()
 
   const [active, setActive] = useState<ActiveChatTurn | null>(null)
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<ChatErrorReason | null>(null)
+  const [attempted, setAttempted] = useState<string | null>(null)
 
   // The last attempt, kept so retry() reuses the same clientId even after a
   // POST failure (no jobId yet) or a fresh mount that re-adopted a turn.
   const lastAttempt = useRef<StartInput | null>(null)
   // Guards the terminal-clear so it runs once per turn.
   const terminalCleared = useRef(false)
-  // Read the latest onTurnDone without re-arming the terminal effect on every
-  // render. Synced in an effect (writing a ref during render is disallowed).
-  const onTurnDoneRef = useRef(opts?.onTurnDone)
-  useEffect(() => {
-    onTurnDoneRef.current = opts?.onTurnDone
-  })
 
   const view = useChatJobPoll(active?.jobId ?? null, active?.startedAt ?? null)
 
   const doStart = useCallback(
     async (input: StartInput): Promise<void> => {
       lastAttempt.current = input
+      setAttempted(input.message)
       setSendError(null)
       setSending(true)
       try {
@@ -101,8 +95,8 @@ export function useChatController(opts?: {
   )
 
   const retry = useCallback((): void => {
-    // Prefer the persisted/active turn's ids (survives a reattach); fall back to
-    // the last attempt (POST that never got a jobId).
+    // Prefer the accepted turn's ids (survive a reattach); fall back to the last
+    // attempt (a POST that never got a jobId).
     const base: StartInput | null =
       active !== null
         ? { message: active.userMessage, clientId: active.clientId, sessionId: active.sessionId }
@@ -111,8 +105,11 @@ export function useChatController(opts?: {
     void doStart(base)
   }, [active, doStart])
 
-  const dismissError = useCallback((): void => setSendError(null), [])
-  const acknowledge = useCallback((): void => setActive(null), [])
+  const dismiss = useCallback((): void => {
+    setActive(null)
+    setAttempted(null)
+    setSendError(null)
+  }, [])
 
   // Re-adopt a persisted in-flight turn on mount (unlock-remount, app kill).
   useEffect(() => {
@@ -130,15 +127,12 @@ export function useChatController(opts?: {
 
   // Clear the persisted handle the moment the turn is terminal — a finished or
   // dead job must never be re-polled on a later reattach (D-A6). The resolved
-  // turn stays in memory so its bubble renders until the screen acknowledges it.
+  // turn stays in memory so its bubble renders until the screen dismisses it.
   useEffect(() => {
     if (active === null || terminalCleared.current) return
     if (!isTerminalView(view)) return
     terminalCleared.current = true
     void clearActiveTurn(preferencesKV)
-    if (view.phase === 'done') {
-      onTurnDoneRef.current?.(active.userMessage, view.reply, view.tokensUsed)
-    }
   }, [view, active])
 
   // A backgrounded WebView throttles refetchInterval; kick an immediate poll on
@@ -154,5 +148,5 @@ export function useChatController(opts?: {
     }
   }, [active, queryClient])
 
-  return { active, view, sending, sendError, send, retry, dismissError, acknowledge }
+  return { active, view, sending, sendError, attempted, send, retry, dismiss }
 }
