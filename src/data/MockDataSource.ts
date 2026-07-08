@@ -41,6 +41,7 @@ import {
 } from '@/schemas'
 import { z } from 'zod'
 import { daysUntil, toIsoDate, toIsoDateTime } from '@/lib/dates'
+import { ApiError } from './ApiDataSource'
 import type { DataSource, TimelineParams } from './DataSource'
 import type { KV } from './kv'
 import { materialize } from './mock/materialize'
@@ -587,8 +588,10 @@ export class MockDataSource implements DataSource {
   async getChatJob(jobId: string): Promise<ChatJobResponse> {
     await this.ready()
     const job = this.overlay.chatJobs[jobId]
-    // Mirrors the server's 404 on an unknown or TTL-expired jobId.
-    if (job === undefined) throw new Error(`Chat job not found: ${jobId}`)
+    // Mirrors the server's 404 on an unknown or TTL-expired jobId — as a real
+    // ApiError(status:404) so Demo mode drives the same expired-turn handling
+    // as the live path (D-A6).
+    if (job === undefined) throw new ApiError(`Chat job not found: ${jobId}`, 'server', 404)
 
     job.polls += 1
     if (job.polls <= MOCK_CHAT_THINK_POLLS) {
