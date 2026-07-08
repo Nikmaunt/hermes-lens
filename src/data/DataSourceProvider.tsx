@@ -21,7 +21,8 @@ interface DataContextValue {
   deadLetterCount: number
 }
 
-const DataContext = createContext<DataContextValue | null>(null)
+/** Exported for tests that inject a data source directly (bypassing the provider). */
+export const DataContext = createContext<DataContextValue | null>(null)
 
 const cache = createEndpointCache(preferencesKV)
 const queue = createMutationQueue(preferencesKV)
