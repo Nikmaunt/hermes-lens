@@ -176,13 +176,27 @@ body,
   height: 100%;
 }
 
+/*
+ * html is the real scroll container — html/body/#root are all height:100% and
+ * the app shell overflows them, so the viewport scrolls the document element.
+ * overscroll-behavior therefore has to live here: on body alone it does NOT
+ * govern the viewport bounce. Containing it stops Android WebView's stretch
+ * overscroll from dragging the sticky /chat composer (scrolling layer) off the
+ * fixed BottomNav (visual-viewport layer) — the gap + wobble at the bottom
+ * bounce. Applied to all three candidates so no scroller is missed.
+ */
+html,
+body,
+#root {
+  overscroll-behavior: none;
+}
+
 body {
   background: var(--hl-bg);
   color: var(--hl-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: none;
   font-size: 15px;
   line-height: 1.45;
 }
