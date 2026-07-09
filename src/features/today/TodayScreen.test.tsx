@@ -96,6 +96,9 @@ describe('follow-up actions on Today', () => {
       { timeout: 5000 },
     )
     expect(screen.getByText(title).className).not.toContain('line-through')
+    // Let the background undo request settle before the next boot reads the
+    // overlay — a later test relies on fu-1 having its buttons back.
+    await new Promise((resolve) => setTimeout(resolve, 1500))
   })
 
   it('snooze shows a dated undo snackbar and undo restores the card', { timeout: TEST_TIMEOUT }, async () => {
@@ -178,6 +181,34 @@ describe('follow-up actions on Today', () => {
     expect(
       await screen.findByRole('button', { name: `Undo: ${title}` }, { timeout: 5000 }),
     ).toBeInTheDocument()
+  })
+
+  it('moves a follow-up to someday: syncing card, snackbar Undo restores it', { timeout: TEST_TIMEOUT }, async () => {
+    // fu-1 is the only fixture item earlier tests leave without a pending
+    // action (its done was undone), so the buttons are guaranteed back.
+    await bootToToday()
+    const title = "Reply to Rosa about moving Thursday's lesson"
+    const somedayBtn = await screen.findByRole(
+      'button',
+      { name: `To someday: ${title}` },
+      { timeout: 5000 },
+    )
+    await userEvent.click(somedayBtn)
+
+    // Same optimistic mechanics as done: syncing card, buttons gone.
+    await waitFor(() => expect(screen.getByText(title).className).toContain('line-through'))
+    expect(screen.getByText('moved to someday')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: `Done: ${title}` })).toBeNull()
+    expect(screen.queryByRole('button', { name: `Snooze: ${title}` })).toBeNull()
+
+    // Snackbar arrives once the action settled; Undo restores the card.
+    await screen.findByText('Moved to someday', undefined, { timeout: 5000 })
+    await userEvent.click(screen.getByRole('button', { name: 'Undo' }))
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: `Done: ${title}` })).toBeInTheDocument(),
+      { timeout: 5000 },
+    )
+    expect(screen.getByText(title).className).not.toContain('line-through')
   })
 
   it('snoozes a follow-up to next Monday from the snooze menu', { timeout: TEST_TIMEOUT }, async () => {

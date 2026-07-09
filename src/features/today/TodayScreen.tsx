@@ -13,6 +13,7 @@ import {
 } from '@/components/primitives'
 import { DueBadge, type DueTone } from '@/components/DueBadge'
 import {
+  ArchiveIcon,
   BotIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -183,9 +184,11 @@ export function TodayScreen() {
             message:
               req.action === 'done'
                 ? 'Marked done'
-                : req.until !== undefined
-                  ? `Snoozed to ${formatDate(req.until)}`
-                  : 'Snoozed',
+                : req.action === 'someday'
+                  ? 'Moved to someday'
+                  : req.until !== undefined
+                    ? `Snoozed to ${formatDate(req.until)}`
+                    : 'Snoozed',
             actionLabel: 'Undo',
             durationMs: UNDO_WINDOW_MS,
             onAction: () => undo(fu),
@@ -356,9 +359,11 @@ export function TodayScreen() {
                           <span className="flex-1 text-caption text-faint">
                             {pending.action === 'done'
                               ? 'marked done'
-                              : pending.until !== undefined
-                                ? `snoozed to ${formatDate(pending.until)}`
-                                : 'snoozed'}
+                              : pending.action === 'someday'
+                                ? 'moved to someday'
+                                : pending.until !== undefined
+                                  ? `snoozed to ${formatDate(pending.until)}`
+                                  : 'snoozed'}
                           </span>
                           {!inflightIds.has(fu.id) && (
                             <button
@@ -372,7 +377,7 @@ export function TodayScreen() {
                         </div>
                       ) : (
                         <>
-                          <div className="mt-2.5 flex items-center gap-2">
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
                             <button
                               aria-label={`Done: ${fu.title}`}
                               onClick={() => act(fu, { action: 'done' })}
@@ -391,6 +396,14 @@ export function TodayScreen() {
                             >
                               <ClockIcon size={16} aria-hidden />
                               Snooze
+                            </button>
+                            <button
+                              aria-label={`To someday: ${fu.title}`}
+                              onClick={() => act(fu, { action: 'someday' })}
+                              className="bg-raised flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
+                            >
+                              <ArchiveIcon size={16} aria-hidden />
+                              To someday
                             </button>
                           </div>
                           {snoozeMenuFor === fu.id && (
