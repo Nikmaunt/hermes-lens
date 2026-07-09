@@ -104,6 +104,7 @@ export function ChatScreen() {
   return (
     <Screen
       title="Ask Hermes"
+      fill
       actions={
         transcript.messages.length > 0 ? (
           <button
@@ -115,31 +116,34 @@ export function ChatScreen() {
         ) : undefined
       }
     >
-      {/* Fill most of the viewport so a short chat's composer sits low, then
-          grow past it for a long one (min-h degrades gracefully — never
-          collapses). The composer sticks just above the fixed BottomNav. */}
-      <div className="flex min-h-[calc(100dvh-9rem)] flex-col">
-        <div className="flex-1">
-          {showEmpty ? (
-            <EmptyChat />
-          ) : (
-            <div className="flex flex-col gap-3 pb-3">
-              {transcript.messages.map((m, i) => (
-                <MessageBubble key={`${m.at}-${m.role}-${i}`} message={m} />
-              ))}
-              {pending !== null && (
-                <PendingBubbles pending={pending} onRetry={retry} onDismiss={dismiss} />
-              )}
-              <div ref={bottomRef} />
-            </div>
-          )}
-        </div>
-        <Composer
-          onSend={send}
-          disabled={inFlight}
-          onNotice={(message) => snackbar.show({ message })}
-        />
+      {/* Fix A: /chat is a fixed-height column (Screen `fill`). The message
+          list is the ONLY scroller — the document never scrolls — and
+          overscroll-none keeps a bottom bounce from dragging anything off the
+          fixed BottomNav. The bottom padding lives inside the list (not the
+          page) so nothing scrolls under the composer. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-none">
+        {showEmpty ? (
+          <EmptyChat />
+        ) : (
+          <div className="flex flex-col gap-3 pb-3">
+            {transcript.messages.map((m, i) => (
+              <MessageBubble key={`${m.at}-${m.role}-${i}`} message={m} />
+            ))}
+            {pending !== null && (
+              <PendingBubbles pending={pending} onRetry={retry} onDismiss={dismiss} />
+            )}
+            <div ref={bottomRef} />
+          </div>
+        )}
       </div>
+      {/* Composer is an ordinary bottom flex child (not sticky): the column
+          height already reserves the BottomNav, so it sits flush above it at
+          any scroll position. */}
+      <Composer
+        onSend={send}
+        disabled={inFlight}
+        onNotice={(message) => snackbar.show({ message })}
+      />
     </Screen>
   )
 }
@@ -326,10 +330,7 @@ export function Composer({
   const sendDisabled = text.trim() === '' || disabled
 
   return (
-    <div
-      className="border-line bg-bg sticky border-t pt-3 pb-2"
-      style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
-    >
+    <div className="border-line bg-bg border-t pt-3 pb-2">
       {voiceLive && (
         <div className="border-accent/40 bg-accent-dim mb-2 rounded-lg border px-3 py-2">
           <div className="text-accent flex items-center gap-2 text-xs font-medium">

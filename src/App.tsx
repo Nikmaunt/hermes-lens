@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Outlet, Route, Routes, useNavigate } from 'react-router'
+import { BrowserRouter, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router'
 import { Capacitor } from '@capacitor/core'
 import { AuthBanner } from './components/AuthBanner'
 import { BottomNav } from './components/BottomNav'
@@ -61,6 +61,7 @@ const ChatScreen = lazy(() =>
 
 function Shell() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { settings } = useSettings()
 
   // Android share sheet → Capture screen, prefilled for review.
@@ -72,8 +73,13 @@ function Shell() {
     [navigate],
   )
 
+  // /chat fills the viewport itself (Screen `fill`) and scrolls internally, so
+  // the usual BottomNav-clearance padding would only add a phantom scroll area
+  // under the composer (Fix A). Every other route keeps it.
+  const fillsViewport = location.pathname === '/chat'
+
   return (
-    <div className="min-h-full pb-20">
+    <div className={fillsViewport ? 'min-h-full' : 'min-h-full pb-20'}>
       <Suspense fallback={<div className="p-4 pt-16"><ListSkeleton rows={4} /></div>}>
         <Outlet />
       </Suspense>

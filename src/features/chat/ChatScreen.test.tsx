@@ -99,6 +99,23 @@ afterEach(() => {
 })
 
 describe('ChatScreen integration', () => {
+  it('gives the message list its own scroll container so the page does not scroll (Fix A)', async () => {
+    const ds = new MockDataSource(new MemoryKV(), 0)
+    const { container } = render(harness(ds))
+    await tick(20) // let loadTranscript settle → the empty state renders
+
+    // The message list is the sole scroller on /chat: an overflow-y-auto box
+    // with overscroll containment, so the document itself never scrolls and a
+    // bottom bounce can't drag the composer off the fixed BottomNav. jsdom does
+    // no layout, so assert the structural contract at the class level. The
+    // combined selector pins the list, not the composer's own scrolling
+    // textarea (which is overflow-y-auto but never overscroll-none).
+    const scroller = container.querySelector('.overflow-y-auto.overscroll-none')
+    expect(scroller).not.toBeNull()
+    // The old document-height column (a 100dvh min-height) is gone.
+    expect(container.innerHTML).not.toMatch(/100dvh/)
+  })
+
   it('runs a full turn: send → poll running→done → reply bubble with token meter', async () => {
     const ds = new MockDataSource(new MemoryKV(), 0)
     render(harness(ds))

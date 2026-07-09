@@ -11,14 +11,33 @@ interface ScreenProps {
   actions?: ReactNode
   /** Hide the search shortcut (e.g. on the Search screen itself). */
   noSearch?: boolean
+  /**
+   * Fill exactly the visible viewport above the fixed BottomNav instead of
+   * growing with content, so the page itself never scrolls — for screens that
+   * own their own scroller (e.g. /chat). `svh` (not `dvh`) never overestimates
+   * when the system bars are shown, so no phantom scrollbar appears. The
+   * child is responsible for its own overflow.
+   */
+  fill?: boolean
 }
 
 /** Page wrapper: sticky top bar + content column with safe-area padding. */
-export function Screen({ title, children, back = false, actions, noSearch = false }: ScreenProps) {
+export function Screen({
+  title,
+  children,
+  back = false,
+  actions,
+  noSearch = false,
+  fill = false,
+}: ScreenProps) {
   const navigate = useNavigate()
   const { settings } = useSettings()
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-lg flex-col">
+    <div
+      className={`mx-auto flex w-full max-w-lg flex-col ${fill ? '' : 'min-h-full'}`}
+      // 3.5rem = the BottomNav's h-14; its safe-area padding is added on top.
+      style={fill ? { height: 'calc(100svh - 3.5rem - env(safe-area-inset-bottom))' } : undefined}
+    >
       <header
         className="bg-bg/85 sticky top-0 z-20 flex items-center gap-3 px-4 pb-3 backdrop-blur-md"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 14px)' }}
@@ -51,7 +70,15 @@ export function Screen({ title, children, back = false, actions, noSearch = fals
           </button>
         )}
       </header>
-      <main className="animate-fade-up flex-1 px-4 pb-6">{children}</main>
+      <main
+        className={
+          fill
+            ? 'animate-fade-up flex min-h-0 flex-1 flex-col px-4'
+            : 'animate-fade-up flex-1 px-4 pb-6'
+        }
+      >
+        {children}
+      </main>
     </div>
   )
 }

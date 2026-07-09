@@ -74,4 +74,16 @@ describe('Composer', () => {
     fireEvent.change(el, { target: { value: 'a' } }) // one line → must shrink
     expect(el.style.height).toBe('40px')
   })
+
+  it('is a plain bottom bar, not a sticky-positioned box (Fix A layout)', () => {
+    // Fix A makes /chat a fixed-height column whose message list is the only
+    // scroller; the composer must be an ordinary flex child, not sticky —
+    // else a bottom overscroll drags it off the fixed BottomNav (the gap this
+    // fix removes). jsdom applies no CSS, so lock the contract at the class /
+    // inline-style level.
+    const { container } = render(<Composer onSend={() => {}} disabled={false} onNotice={() => {}} />)
+    const root = container.firstElementChild as HTMLElement
+    expect(root.className).not.toMatch(/\bsticky\b/)
+    expect(root.style.bottom).toBe('')
+  })
 })
