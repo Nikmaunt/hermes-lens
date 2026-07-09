@@ -79,7 +79,7 @@ function typeMessage(value: string): void {
 }
 
 function clickButton(name: string): void {
-  fireEvent.click(screen.getByText(name))
+  fireEvent.click(screen.getByRole('button', { name }))
 }
 
 beforeEach(() => {

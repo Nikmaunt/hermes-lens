@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import { useSnackbar } from '@/components/SnackbarProvider'
-import { BotIcon, MicIcon, RefreshIcon } from '@/components/icons'
+import { ArrowUpIcon, BotIcon, MicIcon, RefreshIcon } from '@/components/icons'
 import { preferencesKV } from '@/data/kv'
 import { tapMedium } from '@/lib/haptics'
 import { useVoiceCapture } from '@/features/capture/voice'
 import type { ChatErrorReason } from './chatTurn'
+import { autoGrowTextarea, composerRightAction } from './composerLayout'
 import { computePendingTurn, type PendingTurn } from './pendingTurn'
 import {
   appendExchange,
@@ -283,7 +284,13 @@ function EmptyChat() {
   )
 }
 
-function Composer({
+/**
+ * The chat composer: a full-width field with a single contextual control on
+ * its right (mic when empty and dictation is available, Send once there is
+ * text — ChatGPT pattern). The field auto-grows with its content up to a cap,
+ * then scrolls internally. Exported for a focused component test.
+ */
+export function Composer({
   onSend,
   disabled,
   onNotice,
@@ -299,6 +306,13 @@ function Composer({
     onNotice,
   )
   const voiceLive = voice.state === 'starting' || voice.state === 'listening'
+  const voiceAvailable = voice.state !== 'unavailable'
+
+  // Fit the field to its content before paint. Typed, pasted and voice-appended
+  // text all flow through `text`, so this one effect covers every path.
+  useLayoutEffect(() => {
+    autoGrowTextarea(textareaRef.current)
+  }, [text])
 
   const submit = () => {
     const trimmed = text.trim()
@@ -307,6 +321,9 @@ function Composer({
     onSend(trimmed)
     textareaRef.current?.focus()
   }
+
+  const showSend = composerRightAction(text, voiceAvailable) === 'send'
+  const sendDisabled = text.trim() === '' || disabled
 
   return (
     <div
@@ -329,7 +346,7 @@ function Composer({
           )}
         </div>
       )}
-      <div className="flex items-end gap-2">
+      <div className="border-line bg-surface focus-within:border-accent relative flex items-end rounded-(--radius-card) border transition-colors">
         <textarea
           ref={textareaRef}
           value={text}
@@ -342,32 +359,43 @@ function Composer({
           }}
           placeholder="Ask Hermes…"
           rows={1}
-          className="border-line bg-surface max-h-40 min-h-[2.75rem] w-full resize-none rounded-(--radius-card) border p-3 text-body leading-relaxed outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
+          className="max-h-40 min-h-[2.75rem] w-full resize-none overflow-y-auto bg-transparent py-3 pr-14 pl-3.5 text-body leading-relaxed outline-none placeholder:text-faint focus-visible:outline-none"
         />
-        {voice.state !== 'unavailable' && (
+        {/* One slot, two stacked controls that cross-fade so the swap is smooth
+            (and instant under reduced motion). Only the shown one is focusable. */}
+        <div className="absolute right-1.5 bottom-1.5 h-9 w-9">
+          {voiceAvailable && (
+            <button
+              onClick={() => (voiceLive ? voice.stop() : void voice.start())}
+              aria-label={voiceLive ? 'Stop dictation' : 'Dictate a message'}
+              aria-pressed={voiceLive}
+              aria-hidden={showSend}
+              tabIndex={showSend ? -1 : 0}
+              className={`absolute inset-0 flex items-center justify-center rounded-full transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${
+                showSend ? 'pointer-events-none scale-90 opacity-0' : 'opacity-100'
+              } ${voiceLive ? 'bg-danger-dim text-danger' : 'text-muted active:bg-raised'}`}
+            >
+              <MicIcon
+                size={20}
+                className={
+                  voice.state === 'listening' ? 'animate-pulse motion-reduce:animate-none' : ''
+                }
+              />
+            </button>
+          )}
           <button
-            onClick={() => (voiceLive ? voice.stop() : void voice.start())}
-            aria-label={voiceLive ? 'Stop dictation' : 'Dictate a message'}
-            aria-pressed={voiceLive}
-            className={`flex h-[2.75rem] w-12 shrink-0 items-center justify-center rounded-(--radius-card) border transition-colors ${
-              voiceLive
-                ? 'border-danger bg-danger-dim text-danger'
-                : 'border-line bg-surface text-muted active:bg-raised'
+            onClick={submit}
+            disabled={sendDisabled}
+            aria-label="Send"
+            aria-hidden={!showSend}
+            tabIndex={showSend ? 0 : -1}
+            className={`bg-accent text-accent-ink absolute inset-0 flex items-center justify-center rounded-full transition-[opacity,transform] duration-150 ease-out active:opacity-80 disabled:bg-raised disabled:text-faint motion-reduce:transition-none ${
+              showSend ? 'opacity-100' : 'pointer-events-none scale-90 opacity-0'
             }`}
           >
-            <MicIcon
-              size={20}
-              className={voice.state === 'listening' ? 'animate-pulse motion-reduce:animate-none' : ''}
-            />
+            <ArrowUpIcon size={20} />
           </button>
-        )}
-        <button
-          onClick={submit}
-          disabled={text.trim() === '' || disabled}
-          className="bg-accent text-accent-ink h-[2.75rem] shrink-0 rounded-(--radius-card) px-5 text-body font-semibold transition-colors active:opacity-80 disabled:bg-raised disabled:text-faint"
-        >
-          Send
-        </button>
+        </div>
       </div>
     </div>
   )
