@@ -33,7 +33,12 @@ import { snoozeNextMonday, snoozeTomorrow } from '@/lib/snooze'
 import { undoAction } from '@/lib/undo'
 import { followupGoneMessage } from '@/lib/goneOutcome'
 import { eventTarget } from '@/lib/eventRoute'
-import type { AgentStatus, FollowUp, FollowupActionRequest } from '@/schemas'
+import type {
+  AgentStatus,
+  FollowUp,
+  FollowUpPendingAction,
+  FollowupActionRequest,
+} from '@/schemas'
 import { updateTodayWidget } from '../widget/widget'
 
 const urgencyTone: Record<FollowUp['urgency'], DueTone> = {
@@ -194,7 +199,7 @@ export function TodayScreen() {
    * draw the same syncing treatment. */
   const pendingActionFor = (
     fu: FollowUp,
-  ): { action: 'done' | 'snooze'; until?: string | undefined } | null =>
+  ): { action: FollowUpPendingAction['action']; until?: string | undefined } | null =>
     (undoneIds.has(fu.id) ? null : fu.pendingAction) ??
     queuedActions.find((m) => m.itemId === fu.id)?.req ??
     localActions.get(fu.id) ??
