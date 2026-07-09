@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { Id, IsoDate } from './common'
 
 export const FollowupActionRequest = z.object({
-  action: z.enum(['done', 'snooze']),
+  /** "someday" parks the follow-up on the sidecar's someday list (sidecar-first). */
+  action: z.enum(['done', 'snooze', 'someday']),
   /** Required when action is "snooze": the new due date. */
   until: IsoDate.optional(),
 })
