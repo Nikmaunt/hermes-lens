@@ -122,6 +122,19 @@ html.light {
   --animate-fade-up: fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-expand: expand 0.18s var(--ease-emphasized-decelerate) both;
   --animate-flip-in: flip-in 0.18s var(--ease-emphasized-decelerate) both;
+  /* Chat "thinking" dots: a gentle opacity wave, staggered per dot. */
+  --animate-thinking: chat-thinking 1.25s ease-in-out infinite;
+
+  @keyframes chat-thinking {
+    0%,
+    70%,
+    100% {
+      opacity: 0.3;
+    }
+    35% {
+      opacity: 1;
+    }
+  }
 
   @keyframes expand {
     from {
@@ -221,7 +234,8 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-expand,
-  .animate-flip-in {
+  .animate-flip-in,
+  .animate-thinking {
     animation: none;
   }
   .highlight-flash {

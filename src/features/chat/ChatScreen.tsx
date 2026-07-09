@@ -114,12 +114,15 @@ export function ChatScreen() {
         ) : undefined
       }
     >
-      <div className="flex min-h-[68vh] flex-col">
+      {/* Fill most of the viewport so a short chat's composer sits low, then
+          grow past it for a long one (min-h degrades gracefully — never
+          collapses). The composer sticks just above the fixed BottomNav. */}
+      <div className="flex min-h-[calc(100dvh-9rem)] flex-col">
         <div className="flex-1">
           {showEmpty ? (
             <EmptyChat />
           ) : (
-            <div className="flex flex-col gap-3 pb-4">
+            <div className="flex flex-col gap-3 pb-3">
               {transcript.messages.map((m, i) => (
                 <MessageBubble key={`${m.at}-${m.role}-${i}`} message={m} />
               ))}
@@ -173,13 +176,14 @@ function AssistantBubble({ text, tokensUsed }: { text: string; tokensUsed: numbe
 
 function ThinkingBubble({ label }: { label: string }) {
   return (
-    <div className="flex items-center gap-2 text-muted" aria-live="polite">
-      <span className="flex gap-1" aria-hidden>
-        {[0, 150, 300].map((delay) => (
+    <div className="animate-fade-up flex items-center gap-2 text-muted" aria-live="polite">
+      <span className="border-line bg-surface flex items-center gap-1 rounded-2xl rounded-bl-sm border px-3.5 py-3">
+        {[0, 160, 320].map((delay) => (
           <span
             key={delay}
-            className="bg-muted h-1.5 w-1.5 animate-pulse rounded-full"
+            className="bg-muted animate-thinking h-1.5 w-1.5 rounded-full"
             style={{ animationDelay: `${delay}ms` }}
+            aria-hidden
           />
         ))}
       </span>
@@ -216,7 +220,7 @@ function ErrorBubble({
 }) {
   return (
     <div
-      className="border-danger/40 bg-danger-dim max-w-[85%] rounded-2xl rounded-bl-sm border px-4 py-3"
+      className="border-danger/40 bg-danger-dim animate-fade-up max-w-[85%] rounded-2xl rounded-bl-sm border px-4 py-3"
       role="alert"
     >
       <div className="text-danger text-caption">{errorText(reason, message)}</div>
@@ -306,14 +310,14 @@ function Composer({
 
   return (
     <div
-      className="bg-bg/85 sticky bottom-0 pt-2 backdrop-blur-md"
-      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+      className="border-line bg-bg sticky border-t pt-3 pb-2"
+      style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
     >
       {voiceLive && (
         <div className="border-accent/40 bg-accent-dim mb-2 rounded-lg border px-3 py-2">
           <div className="text-accent flex items-center gap-2 text-xs font-medium">
             <span
-              className="bg-danger inline-block h-2 w-2 animate-pulse rounded-full"
+              className="bg-danger inline-block h-2 w-2 animate-pulse rounded-full motion-reduce:animate-none"
               aria-hidden
             />
             {voice.state === 'starting' ? 'Starting the recognizer…' : 'Listening — tap to stop'}
@@ -351,7 +355,10 @@ function Composer({
                 : 'border-line bg-surface text-muted active:bg-raised'
             }`}
           >
-            <MicIcon size={20} className={voice.state === 'listening' ? 'animate-pulse' : ''} />
+            <MicIcon
+              size={20}
+              className={voice.state === 'listening' ? 'animate-pulse motion-reduce:animate-none' : ''}
+            />
           </button>
         )}
         <button
