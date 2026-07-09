@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import {
+  ArchiveIcon,
   DiamondIcon,
   FileTextIcon,
   FlameIcon,
@@ -29,6 +30,7 @@ const ITEMS: readonly {
   { to: '/documents', icon: FileTextIcon, label: 'Documents & Money', hint: 'renewals, spend' },
   { to: '/decisions', icon: ScaleIcon, label: 'Decision Log', hint: 'why I chose what' },
   { to: '/habits', icon: FlameIcon, label: 'Habits', hint: 'streaks & heatmap' },
+  { to: '/someday', icon: ArchiveIcon, label: 'Someday', hint: 'parked, no due date' },
   { to: '/memory/map', icon: GraphIcon, label: 'Memory Map', hint: 'what the agent knows' },
   { to: '/status', icon: RadioIcon, label: 'Agent Status', hint: 'gateway, cron, backup' },
   { to: '/settings', icon: SettingsIcon, label: 'Settings', hint: 'source, lock, theme' },

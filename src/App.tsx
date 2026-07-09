@@ -43,6 +43,9 @@ const HabitsScreen = lazy(() =>
 const SearchScreen = lazy(() =>
   import('./features/search/SearchScreen').then((m) => ({ default: m.SearchScreen })),
 )
+const SomedayScreen = lazy(() =>
+  import('./features/someday/SomedayScreen').then((m) => ({ default: m.SomedayScreen })),
+)
 const BriefsScreen = lazy(() =>
   import('./features/briefs/BriefsScreen').then((m) => ({ default: m.BriefsScreen })),
 )
@@ -126,6 +129,7 @@ function Root() {
                 <Route path="/documents" element={<DocumentsScreen />} />
                 <Route path="/decisions" element={<DecisionsScreen />} />
                 <Route path="/habits" element={<HabitsScreen />} />
+                <Route path="/someday" element={<SomedayScreen />} />
                 <Route path="/briefs" element={<BriefsScreen />} />
                 <Route path="/briefs/:id" element={<BriefScreen />} />
                 <Route path="/search" element={<SearchScreen />} />

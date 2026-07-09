@@ -51,3 +51,6 @@ export const followupGoneMessage = 'The agent already resolved this follow-up'
 
 /** Habit tick undo, on the Habits screen — the completion already stands. */
 export const habitGoneMessage = 'The agent already recorded this tick'
+
+/** Someday activate/close undo, on the Someday screen — resolves in place. */
+export const somedayGoneMessage = 'The agent already handled this item'
