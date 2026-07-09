@@ -86,6 +86,39 @@ describe('ApiDataSource', () => {
     expect(res).toEqual({ status: 'ok', itemId: 'in-1' })
   })
 
+  it('GETs the someday list', async () => {
+    const spy = stubFetch(() =>
+      jsonResponse({ items: [], generatedAt: '2026-07-09T08:00:00+02:00' }),
+    )
+    const ds = new ApiDataSource('http://x', 't')
+    await ds.getSomeday()
+
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://x/api/someday')
+    expect(init.method).toBe('GET')
+  })
+
+  it('POSTs someday actions (activate/close/undo) to the action endpoint', async () => {
+    const spy = stubFetch(() => jsonResponse({ status: 'ok', itemId: 'sd-1' }))
+    const ds = new ApiDataSource('http://x', 't')
+
+    await ds.somedayAction('sd-1', { action: 'activate', date: '2026-07-10' })
+    let [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://x/api/someday/sd-1/action')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify({ action: 'activate', date: '2026-07-10' }))
+
+    await ds.somedayAction('sd-1', { action: 'close' })
+    ;[url, init] = spy.mock.calls[1] as [string, RequestInit]
+    expect(init.body).toBe(JSON.stringify({ action: 'close' }))
+
+    spy.mockImplementation(() => jsonResponse({ status: 'gone', itemId: 'sd-1' }))
+    const res = await ds.somedayAction('sd-1', { action: 'undo' })
+    ;[url, init] = spy.mock.calls[2] as [string, RequestInit]
+    expect(init.body).toBe(JSON.stringify({ action: 'undo' }))
+    expect(res).toEqual({ status: 'gone', itemId: 'sd-1' })
+  })
+
   it('throws ApiError with the status on non-2xx', async () => {
     stubFetch(() => jsonResponse({ error: 'nope' }, false, 401))
     const ds = new ApiDataSource('http://x', 'bad')

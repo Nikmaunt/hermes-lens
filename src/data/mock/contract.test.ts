@@ -314,6 +314,61 @@ describe('mock fixtures honor the API contract', () => {
     expect(await fresh.untriage('in-unknown')).toEqual({ status: 'gone', itemId: 'in-unknown' })
   })
 
+  it('parses the someday list with parked items and a fixture pendingAction', async () => {
+    const someday = await ds.getSomeday()
+    expect(someday.items.length).toBeGreaterThanOrEqual(2)
+    for (const item of someday.items) expect(item.title.length).toBeGreaterThan(0)
+    // One item ships pending so Demo mode exercises the syncing treatment.
+    expect(someday.items.some((i) => i.pendingAction !== undefined)).toBe(true)
+  })
+
+  it('someday action: ok + pendingAction surfaces, repeat ignored, unknown id gone', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const res = await fresh.somedayAction('sd-1', { action: 'activate', date: '2027-01-04' })
+    expect(res).toEqual({ status: 'ok', itemId: 'sd-1' })
+
+    const someday = await fresh.getSomeday()
+    const item = someday.items.find((i) => i.id === 'sd-1')
+    expect(item?.pendingAction?.action).toBe('activate')
+    expect(item?.pendingAction?.date).toBe('2027-01-04')
+
+    // The server ignores a second action while one is pending — so does the mock.
+    await fresh.somedayAction('sd-1', { action: 'close' })
+    const again = await fresh.getSomeday()
+    expect(again.items.find((i) => i.id === 'sd-1')?.pendingAction?.action).toBe('activate')
+
+    // Offline replay after the agent resolved the item: gone is a success.
+    expect(await fresh.somedayAction('sd-unknown', { action: 'close' })).toEqual({
+      status: 'gone',
+      itemId: 'sd-unknown',
+    })
+  })
+
+  it('someday undo: cancels a pending action, gone when nothing is pending', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    await fresh.somedayAction('sd-1', { action: 'close' })
+
+    expect(await fresh.somedayAction('sd-1', { action: 'undo' })).toEqual({
+      status: 'ok',
+      itemId: 'sd-1',
+    })
+    const someday = await fresh.getSomeday()
+    expect(someday.items.find((i) => i.id === 'sd-1')?.pendingAction).toBeUndefined()
+
+    // Nothing pending anymore: the train has left.
+    expect(await fresh.somedayAction('sd-1', { action: 'undo' })).toEqual({
+      status: 'gone',
+      itemId: 'sd-1',
+    })
+    // A fixture pendingAction is the server's own queue, already out of reach.
+    const pendingFixture = someday.items.find((i) => i.pendingAction !== undefined)
+    expect(pendingFixture).toBeDefined()
+    expect(await fresh.somedayAction(pendingFixture?.id ?? '', { action: 'undo' })).toEqual({
+      status: 'gone',
+      itemId: pendingFixture?.id,
+    })
+  })
+
   it('runs a deterministic chat turn from running to done (mock)', async () => {
     const fresh = new MockDataSource(new MemoryKV(), 0)
     const started = await fresh.startChat({ message: 'who am I?', clientId: 'chat-1' })

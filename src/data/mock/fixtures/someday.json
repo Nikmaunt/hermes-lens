@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "id": "sd-1",
+      "title": "Plan the Cascades hiking trip",
+      "source": "telegram, parked from follow-ups"
+    },
+    {
+      "id": "sd-2",
+      "title": "Research a standing desk for the home office",
+      "source": "captured note from @d-21"
+    },
+    {
+      "id": "sd-3",
+      "title": "Digitize the old family photo albums",
+      "source": "chat with the agent",
+      "pendingAction": {
+        "action": "close",
+        "requestedAt": "@t-0@08:40"
+      }
+    }
+  ],
+  "generatedAt": "@t-0@07:00"
+}

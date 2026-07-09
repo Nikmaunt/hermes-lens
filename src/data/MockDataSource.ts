@@ -29,6 +29,10 @@ import {
   SearchResponse,
   SearchResult,
   SearchResultKind,
+  SomedayActionRequest,
+  SomedayActionResponse,
+  SomedayPendingAction,
+  SomedayResponse,
   SyncAckRequest,
   SyncAckResponse,
   TimelineResponse,
@@ -58,6 +62,7 @@ import polishFixture from './mock/fixtures/polish-words.json'
 import inboxFixture from './mock/fixtures/inbox.json'
 import remindersFixture from './mock/fixtures/reminders.json'
 import briefsFixture from './mock/fixtures/briefs.json'
+import somedayFixture from './mock/fixtures/someday.json'
 
 const TIMELINE_PAGE_SIZE = 25
 
@@ -92,8 +97,10 @@ interface MockOverlay {
   flags: Record<string, { action: 'forget' | 'mark-sensitive'; requestedAt: string }>
   /** clientId → response of the first capture, for offline-replay dedup. */
   captureClientIds: Record<string, CaptureResponse>
-  /** followUpId → queued done/snooze, mirroring the server's pendingAction. */
+  /** followUpId → queued done/snooze/someday, mirroring the server's pendingAction. */
   followupActions: Record<string, FollowUpPendingAction>
+  /** somedayId → queued activate/close, mirroring the server's pendingAction. */
+  somedayActions: Record<string, SomedayPendingAction>
   /** habitId → extra completed dates ticked from the app. */
   habitTicks: Record<string, string[]>
   /** clientId → the first turn's start response, for server-dedup parity (D-A8). */
@@ -110,6 +117,7 @@ const EMPTY_OVERLAY: MockOverlay = {
   flags: {},
   captureClientIds: {},
   followupActions: {},
+  somedayActions: {},
   habitTicks: {},
   chatClientIds: {},
   chatJobs: {},
@@ -145,6 +153,7 @@ export class MockDataSource implements DataSource {
   private inboxItems: InboxItem[]
   private reminders: RemindersResponse
   private briefs: BriefDetail[]
+  private someday: SomedayResponse
   private todayBrief: TodaySummary['brief']
   private spentThisMonth: Money[] | undefined
 
@@ -170,6 +179,7 @@ export class MockDataSource implements DataSource {
     this.inboxItems = InboxResponse.shape.items.parse(materialize(inboxFixture.items, now))
     this.reminders = RemindersResponse.parse(materialize(remindersFixture, now))
     this.briefs = z.array(BriefDetail).parse(materialize(briefsFixture.briefs, now))
+    this.someday = SomedayResponse.parse(materialize(somedayFixture, now))
     this.todayBrief = TodaySummary.shape.brief.parse(materialize(todayFixture.brief, now))
     this.spentThisMonth = DocumentsResponse.shape.spentThisMonth.parse(
       documentsFixture.spentThisMonth,
@@ -366,6 +376,16 @@ export class MockDataSource implements DataSource {
     return brief
   }
 
+  async getSomeday(): Promise<SomedayResponse> {
+    await this.ready()
+    // Server behavior: queued activate/close actions surface as pendingAction.
+    const items = this.someday.items.map((item) => {
+      const pending = this.overlay.somedayActions[item.id]
+      return pending === undefined ? item : { ...item, pendingAction: pending }
+    })
+    return { items, generatedAt: this.someday.generatedAt }
+  }
+
   async search(query: string): Promise<SearchResponse> {
     await this.ready()
     const q = query.trim().toLowerCase()
@@ -504,6 +524,30 @@ export class MockDataSource implements DataSource {
       this.overlay.followupActions[itemId] = {
         action: req.action,
         ...(req.until === undefined ? {} : { until: req.until }),
+        requestedAt: toIsoDateTime(new Date()),
+      }
+      await this.saveOverlay()
+    }
+    return { status: 'ok', itemId }
+  }
+
+  async somedayAction(itemId: string, req: SomedayActionRequest): Promise<SomedayActionResponse> {
+    await this.ready()
+    if (req.action === 'undo') {
+      // Only a queued-but-unprocessed action can be cancelled. A fixture
+      // pendingAction is the server's own queue, already out of reach.
+      if (this.overlay.somedayActions[itemId] === undefined) return { status: 'gone', itemId }
+      delete this.overlay.somedayActions[itemId]
+      await this.saveOverlay()
+      return { status: 'ok', itemId }
+    }
+    // The agent already resolved (or never had) this item: success-by-staleness.
+    if (!this.someday.items.some((item) => item.id === itemId)) return { status: 'gone', itemId }
+    // While an action is pending the server ignores further ones — so does the mock.
+    if (this.overlay.somedayActions[itemId] === undefined) {
+      this.overlay.somedayActions[itemId] = {
+        action: req.action,
+        ...(req.action === 'activate' ? { date: req.date } : {}),
         requestedAt: toIsoDateTime(new Date()),
       }
       await this.saveOverlay()

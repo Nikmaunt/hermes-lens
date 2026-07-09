@@ -19,6 +19,8 @@ import {
   ProjectsResponse,
   RemindersResponse,
   SearchResponse,
+  SomedayActionResponse,
+  SomedayResponse,
   SyncAckResponse,
   TimelineResponse,
   TodaySummary,
@@ -31,6 +33,7 @@ import {
   type FollowupUndoRequest,
   type HabitTickRequest,
   type HabitUndoRequest,
+  type SomedayActionRequest,
   type SyncAckRequest,
   type TriageRequest,
 } from '@/schemas'
@@ -186,6 +189,10 @@ export class ApiDataSource implements DataSource {
     return this.request(BriefDetail, `/api/briefs/${encodeURIComponent(id)}`)
   }
 
+  getSomeday(): Promise<SomedayResponse> {
+    return this.request(SomedayResponse, '/api/someday')
+  }
+
   search(query: string): Promise<SearchResponse> {
     return this.request(SearchResponse, `/api/search?q=${encodeURIComponent(query)}`)
   }
@@ -206,6 +213,14 @@ export class ApiDataSource implements DataSource {
     return this.request(
       FollowupActionResponse,
       `/api/followups/${encodeURIComponent(itemId)}/action`,
+      req,
+    )
+  }
+
+  somedayAction(itemId: string, req: SomedayActionRequest): Promise<SomedayActionResponse> {
+    return this.request(
+      SomedayActionResponse,
+      `/api/someday/${encodeURIComponent(itemId)}/action`,
       req,
     )
   }

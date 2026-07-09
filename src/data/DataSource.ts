@@ -24,6 +24,9 @@ import type {
   ProjectsResponse,
   RemindersResponse,
   SearchResponse,
+  SomedayActionRequest,
+  SomedayActionResponse,
+  SomedayResponse,
   SyncAckRequest,
   SyncAckResponse,
   TimelineResponse,
@@ -60,12 +63,16 @@ export interface DataSource {
   getReminders(): Promise<RemindersResponse>
   getBriefs(): Promise<BriefsResponse>
   getBrief(id: string): Promise<BriefDetail>
+  getSomeday(): Promise<SomedayResponse>
   search(query: string): Promise<SearchResponse>
 
   capture(req: CaptureRequest): Promise<CaptureResponse>
   triage(itemId: string, req: TriageRequest): Promise<TriageResponse>
   flagMemory(itemId: string, req: FlagRequest): Promise<FlagResponse>
   followupAction(itemId: string, req: FollowupActionRequest): Promise<FollowupActionResponse>
+  // Covers activate/close AND undo — the someday contract folds all three
+  // into one discriminated request on the same endpoint.
+  somedayAction(itemId: string, req: SomedayActionRequest): Promise<SomedayActionResponse>
   tickHabit(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse>
   ackSync(req: SyncAckRequest): Promise<SyncAckResponse>
 
