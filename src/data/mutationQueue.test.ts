@@ -293,6 +293,99 @@ describe('mutation queue', () => {
     expect(sent).toEqual([{ itemId: 'fu-1', req: { action: 'snooze', until: '2026-07-06' } }])
   })
 
+  it('replays someday actions in order and treats a 200 {status:"gone"} as success', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue({
+      id: 's1',
+      kind: 'someday-action',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'sd-1',
+      req: { action: 'activate', date: '2026-07-13' },
+    })
+    await queue.enqueue({
+      id: 's2',
+      kind: 'someday-action',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'sd-2',
+      req: { action: 'close' },
+    })
+
+    const seen: { itemId: string; req: unknown }[] = []
+    const ds = {
+      kind: 'api',
+      somedayAction: (itemId: string, req: unknown) => {
+        seen.push({ itemId, req })
+        return Promise.resolve({ status: 'gone', itemId })
+      },
+    } as unknown as DataSource
+
+    expect(await queue.drain(ds)).toBe(2)
+    expect(await queue.count()).toBe(0)
+    expect(await queue.deadLetters()).toEqual([])
+    expect(seen).toEqual([
+      { itemId: 'sd-1', req: { action: 'activate', date: '2026-07-13' } },
+      { itemId: 'sd-2', req: { action: 'close' } },
+    ])
+  })
+
+  it('replays a someday undo as {action:"undo"} on the same endpoint', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue({
+      id: 'su1',
+      kind: 'someday-undo',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'sd-1',
+    })
+
+    const calls: unknown[] = []
+    const ds = {
+      kind: 'api',
+      somedayAction: (itemId: string, req: unknown) => {
+        calls.push([itemId, req])
+        return Promise.resolve({ status: 'ok', itemId })
+      },
+    } as unknown as DataSource
+
+    expect(await queue.drain(ds)).toBe(1)
+    expect(await queue.count()).toBe(0)
+    expect(calls).toEqual([['sd-1', { action: 'undo' }]])
+  })
+
+  it('keeps a someday action queued in order across a transient failure', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue({
+      id: 's1',
+      kind: 'someday-action',
+      source: 'api',
+      enqueuedAt: new Date().toISOString(),
+      itemId: 'sd-1',
+      req: { action: 'close' },
+    })
+
+    const offline = {
+      kind: 'api',
+      somedayAction: () => Promise.reject(new ApiError('Agent timed out', 'timeout')),
+    } as unknown as DataSource
+    expect(await queue.drain(offline)).toBe(0)
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+
+    // Back online: the same request replays with its original payload.
+    const sent: unknown[] = []
+    const online = {
+      kind: 'api',
+      somedayAction: (itemId: string, req: unknown) => {
+        sent.push({ itemId, req })
+        return Promise.resolve({ status: 'ok', itemId })
+      },
+    } as unknown as DataSource
+    expect(await queue.drain(online)).toBe(1)
+    expect(sent).toEqual([{ itemId: 'sd-1', req: { action: 'close' } }])
+  })
+
   it('replays habit ticks and treats gone as success', async () => {
     const queue = createMutationQueue(new MemoryKV())
     await queue.enqueue({

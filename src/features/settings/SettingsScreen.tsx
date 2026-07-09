@@ -27,12 +27,21 @@ function describeMutation(item: QueuedMutation): string {
   if (item.kind === 'flag') return `Flag ${item.itemId}: ${item.req.action}`
   if (item.kind === 'followup-action')
     return `Follow-up ${item.itemId}: ${
-      item.req.action === 'snooze' ? `snooze until ${item.req.until ?? '?'}` : 'done'
+      item.req.action === 'snooze'
+        ? `snooze until ${item.req.until ?? '?'}`
+        : item.req.action === 'someday'
+          ? 'to someday'
+          : 'done'
     }`
   if (item.kind === 'habit-tick') return `Habit ${item.itemId}: tick ${item.req.date}`
   if (item.kind === 'followup-undo') return `Follow-up ${item.itemId}: undo`
   if (item.kind === 'habit-undo') return `Habit ${item.itemId}: undo tick ${item.req.date}`
   if (item.kind === 'untriage') return `Inbox ${item.itemId}: undo triage`
+  if (item.kind === 'someday-action')
+    return `Someday ${item.itemId}: ${
+      item.req.action === 'activate' ? `activate on ${item.req.date}` : 'close'
+    }`
+  if (item.kind === 'someday-undo') return `Someday ${item.itemId}: undo`
   return `Calendar sync ack (${item.req.lastSeenRevision})`
 }
 

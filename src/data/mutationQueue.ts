@@ -3,6 +3,7 @@ import type {
   FlagRequest,
   FollowupActionRequest,
   HabitTickRequest,
+  SomedayActionRequest,
   SyncAckRequest,
   TriageRequest,
 } from '@/schemas'
@@ -24,6 +25,8 @@ export type QueuedMutation =
   | { id: string; kind: 'followup-undo'; source: Source; enqueuedAt: string; itemId: string }
   | { id: string; kind: 'habit-undo'; source: Source; enqueuedAt: string; itemId: string; req: HabitTickRequest }
   | { id: string; kind: 'untriage'; source: Source; enqueuedAt: string; itemId: string }
+  | { id: string; kind: 'someday-action'; source: Source; enqueuedAt: string; itemId: string; req: Exclude<SomedayActionRequest, { action: 'undo' }> }
+  | { id: string; kind: 'someday-undo'; source: Source; enqueuedAt: string; itemId: string }
 
 /** A mutation the server permanently rejected — parked for the user to decide. */
 export interface DeadLetter {
@@ -107,6 +110,8 @@ export function createMutationQueue(kv: KV) {
     else if (item.kind === 'followup-undo') await ds.undoFollowupAction(item.itemId)
     else if (item.kind === 'habit-undo') await ds.undoHabitTick(item.itemId, item.req)
     else if (item.kind === 'untriage') await ds.untriage(item.itemId)
+    else if (item.kind === 'someday-action') await ds.somedayAction(item.itemId, item.req)
+    else if (item.kind === 'someday-undo') await ds.somedayAction(item.itemId, { action: 'undo' })
     else await ds.ackSync(item.req)
   }
 

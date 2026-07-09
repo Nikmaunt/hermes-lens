@@ -7,6 +7,7 @@ import type {
   FlagAction,
   FollowupActionRequest,
   HabitTickRequest,
+  SomedayActionRequest,
   SyncAckRequest,
   TriageDestination,
 } from '@/schemas'
@@ -132,6 +133,67 @@ export function useFollowupAction() {
       }
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'today'] })
+    },
+  })
+}
+
+/**
+ * Activate/close a someday item. Activating returns it to the follow-up list,
+ * so both the someday and today caches are refreshed on success.
+ */
+export function useSomedayAction() {
+  const { ds, queue } = useData()
+  const queryClient = useQueryClient()
+  return useMutation<
+    StaleableWriteResult,
+    Error,
+    { itemId: string; req: Exclude<SomedayActionRequest, { action: 'undo' }> }
+  >({
+    mutationFn: async ({ itemId, req }) => {
+      try {
+        const res = await ds.somedayAction(itemId, req)
+        return { queued: false, gone: res.status === 'gone' }
+      } catch {
+        await queue.enqueue({
+          id: crypto.randomUUID(),
+          kind: 'someday-action',
+          source: ds.kind,
+          enqueuedAt: new Date().toISOString(),
+          itemId,
+          req,
+        })
+        return { queued: true, gone: false }
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'someday'] })
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'today'] })
+    },
+  })
+}
+
+export function useSomedayUndo() {
+  const { ds, queue } = useData()
+  const queryClient = useQueryClient()
+  return useMutation<StaleableWriteResult, Error, { itemId: string }>({
+    mutationFn: async ({ itemId }) => {
+      try {
+        const res = await ds.somedayAction(itemId, { action: 'undo' })
+        return { queued: false, gone: res.status === 'gone' }
+      } catch {
+        await queue.enqueue({
+          id: crypto.randomUUID(),
+          kind: 'someday-undo',
+          source: ds.kind,
+          enqueuedAt: new Date().toISOString(),
+          itemId,
+        })
+        return { queued: true, gone: false }
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'someday'] })
       void queryClient.invalidateQueries({ queryKey: [ds.kind, 'today'] })
     },
   })
