@@ -12,7 +12,14 @@ import {
   TodaySkeleton,
 } from '@/components/primitives'
 import { DueBadge, type DueTone } from '@/components/DueBadge'
-import { CheckIcon, ChevronRightIcon, ClockIcon, NewspaperIcon, SunIcon } from '@/components/icons'
+import {
+  BotIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  NewspaperIcon,
+  SunIcon,
+} from '@/components/icons'
 import { UnreadDot } from '@/features/briefs/UnreadDot'
 import { loadReadBriefIds } from '@/features/briefs/readStore'
 import { preferencesKV } from '@/data/kv'
@@ -227,6 +234,19 @@ export function TodayScreen() {
     <Screen title={data !== undefined ? formatDay(data.date) : 'Today'}>
       <PullToRefresh onRefresh={refetch}>
         <StaleBanner since={staleSince} />
+        {/* Always available — asks the agent directly, needs no loaded data. */}
+        <Card onClick={() => void navigate('/chat')} className="mb-1">
+          <div className="flex items-center gap-3">
+            <span className="text-accent" aria-hidden>
+              <BotIcon size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold">Ask Hermes</div>
+              <div className="text-xs text-faint">Put a question to your agent</div>
+            </div>
+            <ChevronRightIcon size={13} className="shrink-0 text-faint" aria-hidden />
+          </div>
+        </Card>
         {isLoading && <TodaySkeleton />}
         {!isLoading && error !== null && data === undefined && (
           <ErrorState

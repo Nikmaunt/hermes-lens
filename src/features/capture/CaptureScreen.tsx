@@ -14,6 +14,8 @@ export function CaptureScreen() {
   const [tags, setTags] = useState<string[]>([])
   const [tagDraft, setTagDraft] = useState('')
   const [fromShare, setFromShare] = useState(false)
+  // Note is primary (a quick capture); Ask hands the composed text to /chat.
+  const [mode, setMode] = useState<'note' | 'ask'>('note')
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const capture = useCapture()
   const snackbar = useSnackbar()
@@ -49,9 +51,18 @@ export function CaptureScreen() {
     setTagDraft('')
   }
 
+  const isAsk = mode === 'ask'
+
   const submit = () => {
     const trimmed = text.trim()
-    if (trimmed === '' || capture.isPending) return
+    if (trimmed === '') return
+    if (isAsk) {
+      // Hand the question to /chat, which owns the whole agent turn (D-A4).
+      tapMedium()
+      void navigate('/chat', { state: { ask: trimmed } })
+      return
+    }
+    if (capture.isPending) return
     tapMedium() // capture committed
     // Optimistic: clear instantly, report async result via snackbar.
     setText('')
@@ -72,6 +83,20 @@ export function CaptureScreen() {
 
   return (
     <Screen title="Capture">
+      <div className="mb-3 inline-flex rounded-(--radius-card) border border-line bg-surface p-0.5 text-xs font-medium">
+        {(['note', 'ask'] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            aria-pressed={mode === m}
+            className={`rounded-[calc(var(--radius-card)-2px)] px-5 py-1.5 transition-colors ${
+              mode === m ? 'bg-accent text-accent-ink' : 'text-muted'
+            }`}
+          >
+            {m === 'note' ? 'Note' : 'Ask'}
+          </button>
+        ))}
+      </div>
       {fromShare && (
         <div className="bg-accent-dim text-accent mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs">
           <ShareIcon size={14} className="shrink-0" />
@@ -82,7 +107,7 @@ export function CaptureScreen() {
         ref={textareaRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="What's on your mind?"
+        placeholder={isAsk ? 'Ask Hermes anything…' : "What's on your mind?"}
         rows={5}
         autoFocus
         className="w-full resize-none rounded-(--radius-card) border border-line bg-surface p-4 text-body leading-relaxed outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
@@ -102,7 +127,8 @@ export function CaptureScreen() {
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      {!isAsk && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {QUICK_TAGS.map((tag) => (
           <button
             key={tag}
@@ -140,7 +166,8 @@ export function CaptureScreen() {
           placeholder="+ tag"
           className="w-20 bg-transparent px-2 py-1.5 text-xs outline-none placeholder:text-faint"
         />
-      </div>
+        </div>
+      )}
 
       <div className="mt-5 flex gap-2">
         <button
@@ -148,7 +175,7 @@ export function CaptureScreen() {
           disabled={text.trim() === ''}
           className="bg-accent text-accent-ink flex-1 rounded-(--radius-card) py-3.5 text-body font-semibold transition-colors active:opacity-80 disabled:bg-raised disabled:text-faint"
         >
-          Send to Hermes
+          {isAsk ? 'Ask Hermes' : 'Send to Hermes'}
         </button>
         {voice.state !== 'unavailable' && (
           <button
@@ -165,9 +192,11 @@ export function CaptureScreen() {
           </button>
         )}
       </div>
-      <p className="mt-3 text-center text-caption text-faint">
-        Lands in the agent's inbox. Works offline — queued captures sync on reconnect.
-      </p>
+      {!isAsk && (
+        <p className="mt-3 text-center text-caption text-faint">
+          Lands in the agent's inbox. Works offline — queued captures sync on reconnect.
+        </p>
+      )}
     </Screen>
   )
 }

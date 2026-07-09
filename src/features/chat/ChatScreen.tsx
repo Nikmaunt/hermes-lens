@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { Screen } from '@/components/Screen'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { BotIcon, MicIcon, RefreshIcon } from '@/components/icons'
@@ -23,12 +24,19 @@ export function ChatScreen() {
   const { active, view, sending, sendError, attempted, send: startSend, retry, dismiss } =
     useChatController()
   const snackbar = useSnackbar()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [transcript, setTranscript] = useState<ChatTranscript>(EMPTY)
+  const [ready, setReady] = useState(false)
   const appendedJob = useRef<string | null>(null)
+  const askHandledRef = useRef(false)
   const bottomRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    void loadTranscript(preferencesKV).then(setTranscript)
+    void loadTranscript(preferencesKV).then((t) => {
+      setTranscript(t)
+      setReady(true)
+    })
   }, [])
 
   // Move a completed turn into the rolling transcript once, then free the
@@ -55,9 +63,10 @@ export function ChatScreen() {
   const pending = computePendingTurn({ sending, sendError, attemptedMessage: attempted, active, view })
   const inFlight = pending?.status === 'sending' || pending?.status === 'thinking'
 
-  // Keep the newest bubble in view as the conversation grows.
+  // Keep the newest bubble in view as the conversation grows. Guarded: not
+  // every runtime implements scrollIntoView (jsdom, some WebViews).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' })
+    bottomRef.current?.scrollIntoView?.({ block: 'end' })
   }, [transcript.messages.length, pending?.status])
 
   const send = useCallback(
@@ -69,6 +78,19 @@ export function ChatScreen() {
     },
     [startSend, transcript.sessionId, inFlight],
   )
+
+  // Capture handoff: a question arrived from the Note|Ask composer (D-A4). Send
+  // it once the transcript (and its rolling sessionId) has loaded so it
+  // continues the same session, then consume the router state so a back/refresh
+  // does not resend it.
+  useEffect(() => {
+    if (!ready || askHandledRef.current) return
+    const ask = (location.state as { ask?: string } | null)?.ask
+    if (typeof ask !== 'string' || ask.trim() === '') return
+    askHandledRef.current = true
+    send(ask.trim())
+    void navigate('/chat', { replace: true, state: null })
+  }, [ready, location.state, send, navigate])
 
   const startNew = useCallback(() => {
     appendedJob.current = null
