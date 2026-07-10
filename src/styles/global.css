@@ -181,9 +181,12 @@ body,
  * the app shell overflows them, so the viewport scrolls the document element.
  * overscroll-behavior therefore has to live here: on body alone it does NOT
  * govern the viewport bounce. Containing it stops Android WebView's stretch
- * overscroll from dragging the sticky /chat composer (scrolling layer) off the
- * fixed BottomNav (visual-viewport layer) — the gap + wobble at the bottom
- * bounce. Applied to all three candidates so no scroller is missed.
+ * overscroll from dragging the document-scrolling screens (scrolling layer)
+ * off the fixed BottomNav (visual-viewport layer) — the gap + wobble at the
+ * bottom bounce. /chat no longer relies on this (since Fix A it is a
+ * fixed-height column whose message list is its own scroller), but every
+ * screen that scrolls the document still does. Applied to all three
+ * candidates so no scroller is missed.
  */
 html,
 body,
