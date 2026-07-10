@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import { ActionChip } from '@/components/ActionChip'
 import { Screen } from '@/components/Screen'
 import {
   Badge,
@@ -12,6 +13,7 @@ import {
 import { useSnackbar } from '@/components/SnackbarProvider'
 import {
   ArchiveIcon,
+  ChevronDownIcon,
   DiamondIcon,
   SparklesIcon,
   SquareCheckIcon,
@@ -24,7 +26,8 @@ import { preferencesKV } from '@/data/kv'
 import { useData } from '@/data/DataSourceProvider'
 import { useInbox } from '@/hooks/queries'
 import { useTriage, useUntriage } from '@/hooks/mutations'
-import { relativeTime, toIsoDateTime } from '@/lib/dates'
+import { formatTime, relativeTime, toIsoDateTime } from '@/lib/dates'
+import { nextTriageRun } from './triageSchedule'
 import { plainNoteText } from '@/lib/noteText'
 import { tapMedium } from '@/lib/haptics'
 import { undoAction } from '@/lib/undo'
@@ -40,6 +43,8 @@ import { useSettings } from '@/settings/SettingsProvider'
 import type { SwipeMapping } from '@/settings/settings'
 
 const SWIPE_THRESHOLD_PX = 90
+/** Pointer travel under this is a tap (expand/collapse), not a swipe. */
+const TAP_SLOP_PX = 10
 const UNDO_WINDOW_MS = 5000
 
 const DESTINATION_META: Record<TriageDestination, { label: string; icon: IconComponent }> = {
@@ -66,6 +71,11 @@ export function InboxScreen() {
   const pending = useRef(
     new Map<string, { timer: ReturnType<typeof setTimeout>; commit: () => void }>(),
   )
+
+  // Tap-to-expand state: long note text is clipped in both lists, a tap
+  // reveals it in place. Keyed by item id so a new top card starts collapsed.
+  const [expandedCardId, setExpandedCardId] = useState<string | null>(null)
+  const [expandedProcessingId, setExpandedProcessingId] = useState<string | null>(null)
 
   // Recently triaged notes (48 h sliding window in kv) — shown in the
   // dimmed Processing section instead of vanishing on swipe.
@@ -227,11 +237,15 @@ export function InboxScreen() {
 
       {top !== undefined && (
         <>
+          {/* The agent clears this queue itself — swiping is optional. */}
+          <p className="mb-2 px-1 text-caption text-faint">
+            {`Agent sorts these automatically · next run ${formatTime(toIsoDateTime(nextTriageRun()))}`}
+          </p>
           <div className="mb-3 flex items-center justify-between px-1 text-caption text-faint">
             <span className="tnum">{deck.length} to triage</span>
-            <span>swipe to sort</span>
+            <span>swipe to sort · tap to read</span>
           </div>
-          <div className="relative h-80">
+          <div className={`relative ${expandedCardId === top.id ? '' : 'h-80'}`}>
             {/* Static preview of the next two cards behind the active one. */}
             {deck.slice(1, 3).map((item, i) => (
               <div
@@ -244,20 +258,32 @@ export function InboxScreen() {
                 }}
               />
             ))}
-            <SwipeCard key={top.id} item={top} onDecide={(dir) => decide(top, dir)} mapping={settings.swipeMapping} />
+            <SwipeCard
+              key={top.id}
+              item={top}
+              onDecide={(dir) => decide(top, dir)}
+              mapping={settings.swipeMapping}
+              expanded={expandedCardId === top.id}
+              onToggleExpanded={() =>
+                setExpandedCardId(expandedCardId === top.id ? null : top.id)
+              }
+            />
           </div>
 
-          <div className="mt-4 grid grid-cols-4 gap-2 text-center text-caption text-faint">
+          {/* Manual override, not a chore: the agent triages on its own, a
+              chip just routes the top note right now. Neutral chips on
+              purpose — nothing here demands a decision. */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {(['left', 'up', 'down', 'right'] as const).map((dir) => {
-              const DestIcon = DESTINATION_META[settings.swipeMapping[dir]].icon
+              const meta = DESTINATION_META[settings.swipeMapping[dir]]
               return (
-                <div key={dir} className="rounded-lg border border-line py-2">
-                  <div className="flex items-center justify-center gap-1" aria-hidden>
+                <ActionChip key={dir} onClick={() => decide(top, dir)}>
+                  <span aria-hidden className="text-faint">
                     {dir === 'left' ? '←' : dir === 'right' ? '→' : dir === 'up' ? '↑' : '↓'}
-                    <DestIcon size={13} />
-                  </div>
-                  <div className="mt-0.5">{DESTINATION_META[settings.swipeMapping[dir]].label}</div>
-                </div>
+                  </span>
+                  <meta.icon size={13} aria-hidden />
+                  {meta.label}
+                </ActionChip>
               )
             })}
           </div>
@@ -270,21 +296,42 @@ export function InboxScreen() {
           <ul className="space-y-2">
             {processingRows.map((entry) => {
               const meta = DESTINATION_META[entry.destination]
+              const expanded = expandedProcessingId === entry.itemId
+              const text = plainNoteText(entry.text)
               return (
                 <li
                   key={entry.itemId}
-                  className="border-line bg-surface flex min-h-11 items-center gap-3 rounded-(--radius-card) border p-3"
+                  className="border-line bg-surface flex min-h-11 items-start gap-3 rounded-(--radius-card) border p-3"
                 >
-                  {/* Content dims; the Undo affordance keeps full contrast. */}
-                  <div className="flex min-w-0 flex-1 items-center gap-3 opacity-60">
-                    <span className="min-w-0 flex-1 truncate text-sm text-muted">
-                      {plainNoteText(entry.text).split('\n')[0]}
+                  {/* Content dims; the Undo affordance keeps full contrast.
+                      The dimmed area is a button: tap to read the full note. */}
+                  <button
+                    onClick={() => setExpandedProcessingId(expanded ? null : entry.itemId)}
+                    aria-expanded={expanded}
+                    className={`flex min-h-11 min-w-0 flex-1 gap-3 text-left opacity-60 active:opacity-40 ${
+                      expanded ? 'items-start' : 'items-center'
+                    }`}
+                  >
+                    <span
+                      className={`min-w-0 flex-1 text-sm text-muted ${
+                        expanded ? 'whitespace-pre-wrap' : 'truncate'
+                      }`}
+                    >
+                      {expanded ? text : text.split('\n')[0]}
                     </span>
                     <span className="flex shrink-0 items-center gap-1 text-caption text-faint">
                       <meta.icon size={13} aria-hidden />
-                      {`→ ${meta.label}`}
+                      <span>{`→ ${meta.label}`}</span>
+                      <span>{`· ${relativeTime(entry.at)}`}</span>
                     </span>
-                  </div>
+                    <ChevronDownIcon
+                      size={13}
+                      aria-hidden
+                      className={`shrink-0 text-faint transition-transform ${
+                        expanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
                   <button
                     onClick={() => undoProcessing(entry)}
                     className="text-accent flex h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold active:opacity-70"
@@ -305,10 +352,14 @@ function SwipeCard({
   item,
   mapping,
   onDecide,
+  expanded,
+  onToggleExpanded,
 }: {
   item: InboxItem
   mapping: SwipeMapping
   onDecide: (direction: Direction) => void
+  expanded: boolean
+  onToggleExpanded: () => void
 }) {
   const [drag, setDrag] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
@@ -327,6 +378,9 @@ function SwipeCard({
           : 'up'
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    // Pointer capture would steal the chevron button's click — taps that
+    // start on a button belong to that button, not to the drag machinery.
+    if ((e.target as HTMLElement).closest('button') !== null) return
     origin.current = { x: e.clientX, y: e.clientY }
     setDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -348,6 +402,8 @@ function SwipeCard({
       setTimeout(() => onDecide(direction), 160)
     } else {
       setDrag({ x: 0, y: 0 })
+      // A near-still pointer is a tap: reveal (or fold) the full note text.
+      if (distance < TAP_SLOP_PX) onToggleExpanded()
     }
   }
 
@@ -368,7 +424,9 @@ function SwipeCard({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      className="border-line bg-raised absolute inset-0 z-10 flex touch-none flex-col rounded-(--radius-card) border p-5 shadow-xl select-none"
+      className={`border-line bg-raised z-10 flex touch-none flex-col rounded-(--radius-card) border p-5 shadow-xl select-none ${
+        expanded ? 'relative min-h-80' : 'absolute inset-0'
+      }`}
       style={{
         transform: flingTransform,
         transition: dragging ? 'none' : 'transform 0.2s ease-out',
@@ -376,9 +434,25 @@ function SwipeCard({
     >
       <div className="flex items-center justify-between">
         <Badge tone="neutral">{item.source}</Badge>
-        <span className="text-caption text-faint">{relativeTime(item.capturedAt)}</span>
+        <div className="flex items-center">
+          <span className="text-caption text-faint">{relativeTime(item.capturedAt)}</span>
+          <button
+            onClick={onToggleExpanded}
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Collapse note' : 'Show full note'}
+            className="-my-3 -mr-3 flex h-11 w-11 items-center justify-center text-faint active:opacity-70"
+          >
+            <ChevronDownIcon
+              size={15}
+              className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+        </div>
       </div>
-      <NoteText text={item.text} className="mt-4 flex-1 overflow-hidden text-title leading-relaxed" />
+      <NoteText
+        text={item.text}
+        className={`mt-4 flex-1 text-title leading-relaxed ${expanded ? '' : 'overflow-hidden'}`}
+      />
       {item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {item.tags.map((tag) => (
