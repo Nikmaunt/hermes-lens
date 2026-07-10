@@ -19,10 +19,10 @@ export interface BufferedNotification {
 }
 
 /**
- * Bridge to the native notification-listener service. The Java implementation
- * ships NEXT release — this interface is the frozen contract it must satisfy.
- * Until then the web mock below answers everywhere, so the whole web layer is
- * exercisable in the browser and in vitest without a device.
+ * Bridge to the native notification-listener service. This interface is the
+ * frozen contract the Java implementation (NotifBridgePlugin.java) satisfies;
+ * on Android the registered native plugin answers, while the web fallback
+ * below keeps the whole layer exercisable in the browser and in vitest.
  */
 export interface NotifBridgePlugin {
   /**
