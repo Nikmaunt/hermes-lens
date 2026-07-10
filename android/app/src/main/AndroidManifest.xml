@@ -35,6 +35,18 @@
 
         </activity>
 
+        <!-- Notification capture: the system binds this listener once the user
+             grants notification access. Not exported for anyone else — only
+             the system holds BIND_NOTIFICATION_LISTENER_SERVICE. -->
+        <service
+            android:name=".HermesNotificationListenerService"
+            android:exported="false"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".TodayWidgetProvider"
             android:exported="false"
