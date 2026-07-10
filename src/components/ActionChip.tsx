@@ -8,18 +8,22 @@ export function ActionChip({
   onClick,
   ariaLabel,
   ariaExpanded,
+  ariaControls,
   children,
 }: {
   tone?: ActionChipTone
   onClick: () => void
   ariaLabel?: string
   ariaExpanded?: boolean
+  /** Id of the element this chip toggles — set it only while that element exists. */
+  ariaControls?: string | undefined
   children: ReactNode
 }) {
   return (
     <button
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       onClick={onClick}
       className={actionChipClass(tone)}
     >

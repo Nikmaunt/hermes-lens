@@ -392,6 +392,11 @@ export function TodayScreen() {
                             <ActionChip
                               ariaLabel={`Snooze: ${fu.title}`}
                               ariaExpanded={snoozeMenuFor === fu.id}
+                              // Only while the submenu is mounted — a dangling
+                              // aria-controls id is an a11y-audit error.
+                              ariaControls={
+                                snoozeMenuFor === fu.id ? `snooze-menu-${fu.id}` : undefined
+                              }
                               onClick={() =>
                                 setSnoozeMenuFor(snoozeMenuFor === fu.id ? null : fu.id)
                               }
@@ -408,7 +413,12 @@ export function TodayScreen() {
                             </ActionChip>
                           </div>
                           {snoozeMenuFor === fu.id && (
-                            <div className="animate-expand mt-2 flex flex-wrap items-center gap-2">
+                            /* One line, like the action row above — the three
+                               chips fit a 360dp card without wrapping. */
+                            <div
+                              id={`snooze-menu-${fu.id}`}
+                              className="animate-expand mt-2 flex items-center gap-2"
+                            >
                               <ActionChip
                                 tone="outline"
                                 onClick={() => act(fu, { action: 'snooze', until: snoozeTomorrow() })}

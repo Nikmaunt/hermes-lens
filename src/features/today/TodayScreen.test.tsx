@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -115,6 +115,28 @@ describe('follow-up actions on Today', () => {
       () => expect(screen.getByRole('button', { name: `Snooze: ${title}` })).toBeInTheDocument(),
       { timeout: 5000 },
     )
+  })
+
+  it('the snooze chip is wired to its submenu via aria-controls', { timeout: TEST_TIMEOUT }, async () => {
+    await bootToToday()
+    // fu untouched by the tests above — earlier snooze/undo residue can leave
+    // a card syncing at boot, hiding its action chips.
+    const title = 'Book a slot for the driving licence photo'
+    const snoozeBtn = await screen.findByRole('button', { name: `Snooze: ${title}` }, { timeout: 5000 })
+    expect(snoozeBtn.getAttribute('aria-expanded')).toBe('false')
+    await userEvent.click(snoozeBtn)
+
+    const menuId = snoozeBtn.getAttribute('aria-controls')
+    expect(menuId).not.toBeNull()
+    const menu = document.getElementById(menuId as string)
+    expect(menu).not.toBeNull()
+    expect(within(menu as HTMLElement).getByRole('button', { name: 'Tomorrow' })).toBeInTheDocument()
+    // The submenu chips stay on a single line — no wrap on narrow screens.
+    expect((menu as HTMLElement).className).not.toContain('flex-wrap')
+
+    // Close it again so later tests find the card untouched.
+    await userEvent.click(snoozeBtn)
+    expect(snoozeBtn.getAttribute('aria-expanded')).toBe('false')
   })
 
   it('shows an Undo button on a syncing card; gone explains the agent resolved it', { timeout: TEST_TIMEOUT }, async () => {
