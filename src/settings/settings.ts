@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { TriageDestination } from '@/schemas'
 import type { KV } from '@/data/kv'
+import { writeNotifConfig } from '@/features/notifications/notifConfig'
 
 export const SwipeMapping = z.object({
   left: TriageDestination,
@@ -29,6 +30,11 @@ export const Settings = z.object({
   calendarTargetId: z.string().catch(''),
   /** Blank out counts/deadline in the home-screen widget while app-lock is on. */
   widgetHideDetails: z.boolean().catch(false),
+  /** Mirror allowed apps' notifications into the agent (needs the phone
+   * build's listener service — shipping next release; harmless no-op until then). */
+  notificationCaptureEnabled: z.boolean().catch(false),
+  /** Package names whose notifications the native listener may capture. */
+  notificationAllowlist: z.array(z.string()).catch([]),
   swipeMapping: SwipeMapping.catch({
     right: 'note',
     left: 'archive',
@@ -61,4 +67,11 @@ export async function loadSettings(kv: KV): Promise<Settings> {
 
 export async function saveSettings(kv: KV, settings: Settings): Promise<void> {
   await kv.set(KEY, JSON.stringify(settings))
+  // Every save mirrors the notification config into its out-of-band
+  // Preferences key, so the future native listener can never read a stale
+  // copy (same pattern as widget:summary).
+  await writeNotifConfig(kv, {
+    enabled: settings.notificationCaptureEnabled,
+    allowlist: settings.notificationAllowlist,
+  })
 }

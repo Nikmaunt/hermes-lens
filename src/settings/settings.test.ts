@@ -34,6 +34,60 @@ describe('settings', () => {
     expect(settings.source).toBe('mock')
   })
 
+  it('parses persisted settings that predate the notification fields (additive defaults)', async () => {
+    const kv = new MemoryKV()
+    // A real pre-notification settings blob: none of the new keys present.
+    await kv.set(
+      'settings',
+      JSON.stringify({
+        source: 'api',
+        apiBaseUrl: 'http://hermes-vps:8787',
+        configured: true,
+        appLock: true,
+        theme: 'light',
+      }),
+    )
+    const settings = await loadSettings(kv)
+    expect(settings.notificationCaptureEnabled).toBe(false)
+    expect(settings.notificationAllowlist).toEqual([])
+    // The old fields survive untouched.
+    expect(settings.apiBaseUrl).toBe('http://hermes-vps:8787')
+    expect(settings.theme).toBe('light')
+  })
+
+  it('catches garbage in the notification fields instead of failing the whole parse', async () => {
+    const kv = new MemoryKV()
+    await kv.set(
+      'settings',
+      JSON.stringify({ source: 'mock', notificationCaptureEnabled: 'yes', notificationAllowlist: 42 }),
+    )
+    const settings = await loadSettings(kv)
+    expect(settings.notificationCaptureEnabled).toBe(false)
+    expect(settings.notificationAllowlist).toEqual([])
+    expect(settings.source).toBe('mock')
+  })
+
+  it('mirrors the notification config to notif:config on every save (out-of-band channel)', async () => {
+    const kv = new MemoryKV()
+    await saveSettings(kv, {
+      ...DEFAULT_SETTINGS,
+      notificationCaptureEnabled: true,
+      notificationAllowlist: ['com.whatsapp'],
+    })
+    expect(JSON.parse((await kv.get('notif:config')) ?? '')).toEqual({
+      enabled: true,
+      allowlist: ['com.whatsapp'],
+      v: 1,
+    })
+
+    await saveSettings(kv, DEFAULT_SETTINGS)
+    expect(JSON.parse((await kv.get('notif:config')) ?? '')).toEqual({
+      enabled: false,
+      allowlist: [],
+      v: 1,
+    })
+  })
+
   it('ignores a legacy plaintext apiToken field without failing', async () => {
     const kv = new MemoryKV()
     await kv.set(

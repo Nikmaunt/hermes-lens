@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { Screen } from '@/components/Screen'
 import { Card, ConfirmDialog, SectionHeader } from '@/components/primitives'
-import { CalendarIcon } from '@/components/icons'
+import { BellIcon, CalendarIcon } from '@/components/icons'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { useData } from '@/data/DataSourceProvider'
 import { getValidationLog, onValidationLogChange, type ValidationLogEntry } from '@/data/debugLog'
@@ -16,6 +16,8 @@ import type { SwipeMapping } from '@/settings/settings'
 import { biometryAvailable } from '../lock/biometric'
 import { useAuth } from '../lock/LockGate'
 import { CalendarBridge, type DeviceCalendar } from '../reminders/calendarBridge'
+import { NotifBridge } from '../notifications/notifBridge'
+import { looksLikePackageName } from '../notifications/notifConfig'
 
 /** One-line human description of a queued mutation for the dead-letter list. */
 function describeMutation(item: QueuedMutation): string {
@@ -42,6 +44,10 @@ function describeMutation(item: QueuedMutation): string {
       item.req.action === 'activate' ? `activate on ${item.req.date}` : 'close'
     }`
   if (item.kind === 'someday-undo') return `Someday ${item.itemId}: undo`
+  if (item.kind === 'notification') {
+    const title = item.req.title.length > 40 ? `${item.req.title.slice(0, 40)}…` : item.req.title
+    return `Notification from ${item.req.package}${title === '' ? '' : `: “${title}”`}`
+  }
   return `Calendar sync ack (${item.req.lastSeenRevision})`
 }
 
@@ -110,6 +116,49 @@ export function SettingsScreen() {
     } catch {
       snackbar.show({ message: 'Calendar access unavailable on this device' })
     }
+  }
+
+  const [notifExplainer, setNotifExplainer] = useState(false)
+  const [newPackage, setNewPackage] = useState('')
+  const [packageError, setPackageError] = useState(false)
+
+  const toggleNotificationCapture = (enabled: boolean) => {
+    if (!enabled) {
+      update({ notificationCaptureEnabled: false })
+      return
+    }
+    // Designed pre-permission explainer before the system screen (calendar pattern).
+    setNotifExplainer(true)
+  }
+
+  const confirmNotificationCapture = async () => {
+    setNotifExplainer(false)
+    // Enable first: the setting (mirrored to notif:config) must be in place
+    // whether or not the system screen round-trip works on this build.
+    update({ notificationCaptureEnabled: true })
+    try {
+      await NotifBridge.openSystemSettings()
+    } catch {
+      // Bridge unavailable (browser, or the listener service ships next
+      // release) — the stored config takes effect once it exists.
+    }
+  }
+
+  const addAllowlistPackage = () => {
+    const pkg = newPackage.trim()
+    if (!looksLikePackageName(pkg)) {
+      setPackageError(true)
+      return
+    }
+    setPackageError(false)
+    setNewPackage('')
+    if (!settings.notificationAllowlist.includes(pkg)) {
+      update({ notificationAllowlist: [...settings.notificationAllowlist, pkg] })
+    }
+  }
+
+  const removeAllowlistPackage = (pkg: string) => {
+    update({ notificationAllowlist: settings.notificationAllowlist.filter((p) => p !== pkg) })
   }
 
   const retryDeadLetter = async (id: string) => {
@@ -280,6 +329,69 @@ export function SettingsScreen() {
         )}
       </Card>
 
+      <SectionHeader>Notification capture</SectionHeader>
+      <Card className="p-0">
+        <ToggleRow
+          label="Capture app notifications"
+          hint="allowed apps' notifications flow into the agent's inbox (phone build)"
+          checked={settings.notificationCaptureEnabled}
+          onChange={toggleNotificationCapture}
+        />
+        {settings.notificationCaptureEnabled && (
+          <div className="border-t border-line px-4 py-3.5">
+            <span className="mb-1 block text-xs font-medium text-muted">Allowed apps</span>
+            {settings.notificationAllowlist.length === 0 ? (
+              <p className="mb-2 text-caption text-faint">
+                No apps allowed yet — nothing is captured until you add one.
+              </p>
+            ) : (
+              <ul className="mb-2 divide-y divide-line">
+                {settings.notificationAllowlist.map((pkg) => (
+                  <li key={pkg} className="flex items-center justify-between py-2">
+                    <span className="font-mono text-xs">{pkg}</span>
+                    <button
+                      aria-label={`Remove ${pkg}`}
+                      onClick={() => removeAllowlistPackage(pkg)}
+                      className="text-danger rounded-full border border-line px-3 py-1 text-xs font-medium active:bg-raised"
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={newPackage}
+                onChange={(e) => {
+                  setNewPackage(e.target.value)
+                  setPackageError(false)
+                }}
+                placeholder="com.whatsapp"
+                autoCapitalize="none"
+                autoCorrect="off"
+                className="w-full flex-1 rounded-lg border border-line bg-raised px-3 py-2.5 font-mono text-sm outline-none placeholder:text-faint focus:border-accent focus-visible:outline-none"
+              />
+              <button
+                onClick={addAllowlistPackage}
+                className="bg-accent-dim text-accent rounded-lg px-4 text-xs font-semibold active:opacity-70"
+              >
+                Add
+              </button>
+            </div>
+            {packageError && (
+              <p className="mt-1 text-caption text-warn">
+                Doesn't look like a package name — expected something like com.whatsapp
+              </p>
+            )}
+            <p className="mt-2 text-caption text-faint">
+              Only notifications from these apps are captured. The list is stored on-device
+              and read by the listener service.
+            </p>
+          </div>
+        )}
+      </Card>
+
       {deadLetters.length > 0 && (
         <>
           <SectionHeader>Failed actions</SectionHeader>
@@ -440,6 +552,40 @@ export function SettingsScreen() {
         />
       )}
 
+      {notifExplainer && (
+        <div className="bg-bg/95 fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 backdrop-blur-sm">
+          <div className="text-faint">
+            <BellIcon size={30} />
+          </div>
+          <div className="max-w-72 space-y-3 text-center">
+            <h2 className="text-lg font-semibold">Notifications into Hermes</h2>
+            <p className="text-sm text-muted">
+              Hermes reads notifications from the apps you allow and files them into the
+              agent's inbox, so a chat ping never gets lost.
+            </p>
+            <p className="text-xs text-faint">
+              Android will now open the notification-access settings — grant access to
+              Hermes Lens there. Only allowed apps are captured, and nothing leaves the
+              Tailscale network.
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={() => void confirmNotificationCapture()}
+              className="bg-accent text-accent-ink rounded-full px-8 py-3 text-sm font-semibold active:opacity-80"
+            >
+              Continue
+            </button>
+            <button
+              onClick={() => setNotifExplainer(false)}
+              className="text-sm text-faint active:opacity-70"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
+
       {calendarExplainer && (
         <div className="bg-bg/95 fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8 backdrop-blur-sm">
           <div className="text-faint">
@@ -497,6 +643,7 @@ function ToggleRow({
       <button
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         onClick={() => onChange(!checked)}
         className={`h-7 w-12 shrink-0 rounded-full p-1 transition-colors ${
           checked ? 'bg-accent' : 'bg-control-track'
