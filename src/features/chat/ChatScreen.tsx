@@ -359,6 +359,7 @@ export function Composer({
             }
           }}
           placeholder="Ask Hermes…"
+          aria-label="Ask Hermes"
           rows={1}
           className="max-h-40 min-h-[2.75rem] w-full resize-none overflow-y-auto bg-transparent py-3 pr-14 pl-3.5 text-body leading-relaxed outline-none placeholder:text-faint focus-visible:outline-none"
         />
