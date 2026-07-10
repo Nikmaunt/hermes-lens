@@ -14,6 +14,9 @@ interface SnackbarOptions {
   /** Optional action button, e.g. Undo. */
   actionLabel?: string
   onAction?: () => void
+  /** Optional lower-emphasis second action, e.g. a View link beside Undo. */
+  secondaryActionLabel?: string
+  onSecondaryAction?: () => void
   durationMs?: number
 }
 
@@ -61,6 +64,17 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
         >
           <div className="animate-fade-up flex items-center gap-3 rounded-xl border border-line bg-raised px-4 py-3 shadow-xl">
             <span className="flex-1 text-sm">{current.message}</span>
+            {current.secondaryActionLabel !== undefined && (
+              <button
+                onClick={() => {
+                  current.onSecondaryAction?.()
+                  dismiss()
+                }}
+                className="text-sm font-medium text-muted active:opacity-70"
+              >
+                {current.secondaryActionLabel}
+              </button>
+            )}
             {current.actionLabel !== undefined && (
               <button
                 onClick={() => {

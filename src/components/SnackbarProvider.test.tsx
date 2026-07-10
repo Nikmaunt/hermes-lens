@@ -21,6 +21,31 @@ function Trigger() {
   )
 }
 
+function TriggerTwoActions({
+  onAction,
+  onSecondaryAction,
+}: {
+  onAction: () => void
+  onSecondaryAction: () => void
+}) {
+  const snackbar = useSnackbar()
+  return (
+    <button
+      onClick={() =>
+        snackbar.show({
+          message: 'Moved to someday',
+          actionLabel: 'Undo',
+          onAction,
+          secondaryActionLabel: 'View',
+          onSecondaryAction,
+        })
+      }
+    >
+      fire
+    </button>
+  )
+}
+
 describe('SnackbarProvider', () => {
   it('keeps an undo snackbar for its 5 s window, then dismisses it', () => {
     vi.useFakeTimers()
@@ -40,5 +65,22 @@ describe('SnackbarProvider', () => {
     // …and gone right after.
     act(() => vi.advanceTimersByTime(1))
     expect(screen.queryByText('Marked done')).toBeNull()
+  })
+
+  it('renders a secondary action beside the primary; either click dismisses', () => {
+    const onAction = vi.fn()
+    const onSecondaryAction = vi.fn()
+    render(
+      <SnackbarProvider>
+        <TriggerTwoActions onAction={onAction} onSecondaryAction={onSecondaryAction} />
+      </SnackbarProvider>,
+    )
+    act(() => screen.getByText('fire').click())
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument()
+
+    act(() => screen.getByRole('button', { name: 'View' }).click())
+    expect(onSecondaryAction).toHaveBeenCalledTimes(1)
+    expect(onAction).not.toHaveBeenCalled()
+    expect(screen.queryByText('Moved to someday')).toBeNull()
   })
 })
