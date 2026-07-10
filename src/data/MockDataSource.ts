@@ -22,6 +22,8 @@ import {
   MemoryItem,
   MemoryResponse,
   Money,
+  NotificationCaptureRequest,
+  NotificationCaptureResponse,
   PeopleResponse,
   PolishWordsResponse,
   ProjectsResponse,
@@ -103,6 +105,8 @@ interface MockOverlay {
   somedayActions: Record<string, SomedayPendingAction>
   /** habitId → extra completed dates ticked from the app. */
   habitTicks: Record<string, string[]>
+  /** clientId → first notification capture's itemId, for buffer-replay dedup parity. */
+  notificationClientIds: Record<string, string>
   /** clientId → the first turn's start response, for server-dedup parity (D-A8). */
   chatClientIds: Record<string, ChatStartResponse>
   /** jobId → the evolving Demo job state. */
@@ -119,6 +123,7 @@ const EMPTY_OVERLAY: MockOverlay = {
   followupActions: {},
   somedayActions: {},
   habitTicks: {},
+  notificationClientIds: {},
   chatClientIds: {},
   chatJobs: {},
   chatSeq: 0,
@@ -564,6 +569,19 @@ export class MockDataSource implements DataSource {
       this.overlay.habitTicks[itemId] = [...ticks, req.date]
       await this.saveOverlay()
     }
+    return { status: 'ok', itemId }
+  }
+
+  async captureNotification(req: NotificationCaptureRequest): Promise<NotificationCaptureResponse> {
+    await this.ready()
+    // Idempotent replay: a clientId we have already accepted answers
+    // 'duplicate' with the original itemId — mirroring the server-side dedup
+    // that makes buffer/offline-queue replays safe.
+    const previous = this.overlay.notificationClientIds[req.clientId]
+    if (previous !== undefined) return { status: 'duplicate', itemId: previous }
+    const itemId = `notif-${Date.now()}-${Object.keys(this.overlay.notificationClientIds).length}`
+    this.overlay.notificationClientIds[req.clientId] = itemId
+    await this.saveOverlay()
     return { status: 'ok', itemId }
   }
 

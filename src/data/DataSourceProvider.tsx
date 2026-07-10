@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { App as CapApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { useQueryClient } from '@tanstack/react-query'
+import { NotifBridge } from '@/features/notifications/notifBridge'
+import { drainNotificationBuffer } from '@/features/notifications/notifDrain'
 import { useSettings } from '@/settings/SettingsProvider'
 import { ApiDataSource } from './ApiDataSource'
 import { clearAuthFailure } from './authState'
@@ -59,11 +61,22 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
 
   // Drain the offline queue whenever the app returns to the foreground,
   // then refetch so optimistic state converges with the source of truth.
+  // The native notification buffer moves into the queue first, so its items
+  // ride the same drain (fail-open: the web mock answers an empty buffer).
+  const notifEnabled = settings.notificationCaptureEnabled
   useEffect(() => {
     const drain = () => {
-      void queue.drain(ds).then((flushed) => {
-        if (flushed > 0) void queryClient.invalidateQueries()
+      void drainNotificationBuffer({
+        bridge: NotifBridge,
+        queue,
+        source: ds.kind,
+        enabled: notifEnabled,
       })
+        .catch(() => 0) // enqueue failed (broken storage) — buffer keeps the items for next drain
+        .then(() => queue.drain(ds))
+        .then((flushed) => {
+          if (flushed > 0) void queryClient.invalidateQueries()
+        })
     }
     drain()
     if (!Capacitor.isNativePlatform()) return
@@ -73,7 +86,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     return () => {
       void sub.then((s) => s.remove())
     }
-  }, [ds, queryClient])
+  }, [ds, queryClient, notifEnabled])
 
   const value = useMemo(
     () => ({ ds, cache, queue, pendingCount, deadLetterCount }),

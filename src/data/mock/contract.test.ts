@@ -106,6 +106,30 @@ describe('mock fixtures honor the API contract', () => {
     expect((await fresh.getInbox()).items.length).toBe(before + 3)
   })
 
+  it('answers notification capture replays with "duplicate" and the original itemId', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const req = {
+      clientId: 'client-1-stable',
+      package: 'com.whatsapp',
+      postedAt: '2026-07-11T09:30:00+02:00',
+      capturedAt: '2026-07-11T09:30:02+02:00',
+      title: 'Maria',
+      text: 'Are we still on for tomorrow?',
+    }
+
+    const first = await fresh.captureNotification(req)
+    expect(first.status).toBe('ok')
+
+    const replay = await fresh.captureNotification(req)
+    expect(replay.status).toBe('duplicate')
+    expect(replay.itemId).toBe(first.itemId)
+
+    // A different clientId is a different notification.
+    const other = await fresh.captureNotification({ ...req, clientId: 'client-2-stable' })
+    expect(other.status).toBe('ok')
+    expect(other.itemId).not.toBe(first.itemId)
+  })
+
   it('acknowledges reminder syncs idempotently', async () => {
     const req = { syncedAt: '2026-07-04T12:00:00+02:00', lastSeenRevision: 'rev-2b7f31' }
     expect(await ds.ackSync(req)).toEqual({ status: 'ok' })

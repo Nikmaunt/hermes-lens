@@ -14,6 +14,7 @@ import {
   HabitTickResponse,
   InboxResponse,
   MemoryResponse,
+  NotificationCaptureResponse,
   PeopleResponse,
   PolishWordsResponse,
   ProjectsResponse,
@@ -33,6 +34,7 @@ import {
   type FollowupUndoRequest,
   type HabitTickRequest,
   type HabitUndoRequest,
+  type NotificationCaptureRequest,
   type SomedayActionRequest,
   type SyncAckRequest,
   type TriageRequest,
@@ -231,6 +233,10 @@ export class ApiDataSource implements DataSource {
 
   ackSync(req: SyncAckRequest): Promise<SyncAckResponse> {
     return this.request(SyncAckResponse, '/api/sync/ack', req)
+  }
+
+  captureNotification(req: NotificationCaptureRequest): Promise<NotificationCaptureResponse> {
+    return this.request(NotificationCaptureResponse, '/api/notifications', req)
   }
 
   undoFollowupAction(itemId: string): Promise<FollowupActionResponse> {

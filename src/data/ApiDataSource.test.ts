@@ -119,6 +119,26 @@ describe('ApiDataSource', () => {
     expect(res).toEqual({ status: 'gone', itemId: 'sd-1' })
   })
 
+  it('POSTs notification captures to /api/notifications and accepts "duplicate"', async () => {
+    const spy = stubFetch(() => jsonResponse({ status: 'duplicate', itemId: 'n-1' }))
+    const ds = new ApiDataSource('http://x', 't')
+    const req = {
+      clientId: 'client-1-stable',
+      package: 'com.whatsapp',
+      postedAt: '2026-07-11T09:30:00+02:00',
+      capturedAt: '2026-07-11T09:30:02+02:00',
+      title: 'Maria',
+      text: 'Are we still on for tomorrow?',
+    }
+    const res = await ds.captureNotification(req)
+
+    const [url, init] = spy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('http://x/api/notifications')
+    expect(init.method).toBe('POST')
+    expect(init.body).toBe(JSON.stringify(req))
+    expect(res).toEqual({ status: 'duplicate', itemId: 'n-1' })
+  })
+
   it('throws ApiError with the status on non-2xx', async () => {
     stubFetch(() => jsonResponse({ error: 'nope' }, false, 401))
     const ds = new ApiDataSource('http://x', 'bad')

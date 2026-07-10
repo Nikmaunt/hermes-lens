@@ -3,6 +3,7 @@ import type {
   FlagRequest,
   FollowupActionRequest,
   HabitTickRequest,
+  NotificationCaptureRequest,
   SomedayActionRequest,
   SyncAckRequest,
   TriageRequest,
@@ -27,6 +28,7 @@ export type QueuedMutation =
   | { id: string; kind: 'untriage'; source: Source; enqueuedAt: string; itemId: string }
   | { id: string; kind: 'someday-action'; source: Source; enqueuedAt: string; itemId: string; req: Exclude<SomedayActionRequest, { action: 'undo' }> }
   | { id: string; kind: 'someday-undo'; source: Source; enqueuedAt: string; itemId: string }
+  | { id: string; kind: 'notification'; source: Source; enqueuedAt: string; req: NotificationCaptureRequest }
 
 /** A mutation the server permanently rejected — parked for the user to decide. */
 export interface DeadLetter {
@@ -112,6 +114,9 @@ export function createMutationQueue(kv: KV) {
     else if (item.kind === 'untriage') await ds.untriage(item.itemId)
     else if (item.kind === 'someday-action') await ds.somedayAction(item.itemId, item.req)
     else if (item.kind === 'someday-undo') await ds.somedayAction(item.itemId, { action: 'undo' })
+    // A 200 {status:'duplicate'} resolves normally — the server already has
+    // this notification (replay deduped by clientId), which is success here.
+    else if (item.kind === 'notification') await ds.captureNotification(item.req)
     else await ds.ackSync(item.req)
   }
 

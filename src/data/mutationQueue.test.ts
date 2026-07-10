@@ -474,4 +474,72 @@ describe('mutation queue', () => {
     await queue.enqueue(captureItem(2))
     expect(counts).toEqual([1, 2])
   })
+
+  const notificationItem = (n: number): Extract<QueuedMutation, { kind: 'notification' }> => ({
+    id: `n${n}`,
+    kind: 'notification',
+    source: 'api',
+    enqueuedAt: new Date().toISOString(),
+    req: {
+      clientId: `client-${n}-stable`,
+      package: 'com.whatsapp',
+      postedAt: '2026-07-11T09:30:00+02:00',
+      capturedAt: '2026-07-11T09:30:02+02:00',
+      title: `Sender ${n}`,
+      text: `message ${n}`,
+    },
+  })
+
+  it('replays notification captures in order and treats a 200 {status:"duplicate"} as success', async () => {
+    // 'duplicate' means the server already has this notification (a replay
+    // deduped by clientId) — the mutation must leave the queue as a success.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(notificationItem(1))
+    await queue.enqueue(notificationItem(2))
+
+    const seen: unknown[] = []
+    let call = 0
+    const ds = {
+      kind: 'api',
+      captureNotification: (req: unknown) => {
+        seen.push(req)
+        call++
+        return Promise.resolve({ status: call === 1 ? 'ok' : 'duplicate', itemId: `it-${call}` })
+      },
+    } as unknown as DataSource
+
+    expect(await queue.drain(ds)).toBe(2)
+    expect(await queue.count()).toBe(0)
+    expect(await queue.deadLetters()).toEqual([])
+    expect(seen).toEqual([notificationItem(1).req, notificationItem(2).req])
+  })
+
+  it('keeps a notification queued across 429/408 (transient) and dead-letters other 4xx', async () => {
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(notificationItem(1))
+
+    const rateLimited = {
+      kind: 'api',
+      captureNotification: () => Promise.reject(new ApiError('Agent returned 429', 'server', 429)),
+    } as unknown as DataSource
+    expect(await queue.drain(rateLimited)).toBe(0)
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+
+    const timedOut = {
+      kind: 'api',
+      captureNotification: () => Promise.reject(new ApiError('Agent returned 408', 'server', 408)),
+    } as unknown as DataSource
+    expect(await queue.drain(timedOut)).toBe(0)
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+
+    const rejecting = {
+      kind: 'api',
+      captureNotification: () => Promise.reject(new ApiError('Agent returned 422', 'server', 422)),
+    } as unknown as DataSource
+    expect(await queue.drain(rejecting)).toBe(0)
+    expect(await queue.count()).toBe(0)
+    expect((await queue.deadLetters()).map((d) => d.item.id)).toEqual(['n1'])
+  })
 })

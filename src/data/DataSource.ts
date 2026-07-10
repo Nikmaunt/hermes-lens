@@ -19,6 +19,8 @@ import type {
   HabitTickResponse,
   InboxResponse,
   MemoryResponse,
+  NotificationCaptureRequest,
+  NotificationCaptureResponse,
   PeopleResponse,
   PolishWordsResponse,
   ProjectsResponse,
@@ -75,6 +77,11 @@ export interface DataSource {
   somedayAction(itemId: string, req: SomedayActionRequest): Promise<SomedayActionResponse>
   tickHabit(itemId: string, req: HabitTickRequest): Promise<HabitTickResponse>
   ackSync(req: SyncAckRequest): Promise<SyncAckResponse>
+  // Notification listener (web layer): replay a device notification captured
+  // by the native buffer. 'duplicate' is success — the server already has it,
+  // deduped by the clientId that is stable across offline-queue and buffer
+  // replays. Always arrives via the mutation queue, never called directly.
+  captureNotification(req: NotificationCaptureRequest): Promise<NotificationCaptureResponse>
 
   // Undo endpoints: each cancels a still-unprocessed pending action.
   // "gone" = the agent already handled it, nothing left to cancel.
