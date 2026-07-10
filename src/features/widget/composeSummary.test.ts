@@ -141,6 +141,17 @@ describe('deadline line', () => {
   })
 })
 
+describe('brief line (additive v2 field)', () => {
+  it("carries today's brief title when one exists", () => {
+    const s = summary({ brief: { id: 'b1', title: 'Quiet day, two things need you' } })
+    expect(compose(s).brief).toBe('Quiet day, two things need you')
+  })
+
+  it('is null when the payload has no brief', () => {
+    expect(compose(summary()).brief).toBeNull()
+  })
+})
+
 describe('health line', () => {
   it('reports "no data" when the status cache is empty', () => {
     expect(compose(summary(), { status: null }).health).toBe('no data')
@@ -201,6 +212,7 @@ describe('locked mode (widgetHideDetails)', () => {
       followUps: [fu({ title: 'Secret task' })],
       deadlines: [{ id: 'd1', title: 'Visa', date: '2026-07-13', kind: 'document', daysLeft: 7 }],
       inboxCount: 9,
+      brief: { id: 'b1', title: 'Secret brief' },
     })
     const v2 = compose(s, { masked: true })
     expect(v2.masked).toBe(true)
@@ -208,10 +220,12 @@ describe('locked mode (widgetHideDetails)', () => {
     expect(v2.followUpCount).toBe(0)
     expect(v2.inbox).toBe(0)
     expect(v2.deadline).toBeNull()
+    expect(v2.brief).toBeNull()
     expect(v2.health).toBe('ok · backup today')
     expect(v2.updatedAt).toBe('14:05')
     expect(JSON.stringify(v2)).not.toContain('Secret task')
     expect(JSON.stringify(v2)).not.toContain('Visa')
+    expect(JSON.stringify(v2)).not.toContain('Secret brief')
   })
 })
 

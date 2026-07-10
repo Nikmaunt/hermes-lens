@@ -24,6 +24,11 @@ export interface WidgetSummaryV2 {
   inbox: number
   /** "Visa — 13 Jul (7d)" or null when nothing is due in 30 days. */
   deadline: string | null
+  /**
+   * Title of today's brief, or null when none. Additive within v2: the Java
+   * parser treats a missing field as "no brief", so old snapshots stay valid.
+   */
+  brief: string | null
   /** One-line agent health, from the cached /api/status. */
   health: string
   updatedAt: string // 'HH:MM'
@@ -82,7 +87,7 @@ export function composeWidgetSummary(
 
   if (masked) {
     // Locked: the widget may say how the agent feels, never what it knows.
-    return { v: 2, masked: true, followUps: [], followUpCount: 0, inbox: 0, deadline: null, health, ...stamp }
+    return { v: 2, masked: true, followUps: [], followUpCount: 0, inbox: 0, deadline: null, brief: null, health, ...stamp }
   }
 
   const open = summary.followUps.filter(
@@ -103,6 +108,7 @@ export function composeWidgetSummary(
             nextDeadline.daysLeft === 0 ? 'today' : `${nextDeadline.daysLeft}d`
           })`
         : null,
+    brief: summary.brief?.title ?? null,
     health,
     ...stamp,
   }
