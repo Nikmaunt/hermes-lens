@@ -188,9 +188,10 @@ describe('follow-up actions on Today', () => {
     // action (its done was undone), so the buttons are guaranteed back.
     await bootToToday()
     const title = "Reply to Rosa about moving Thursday's lesson"
+    // The accessible name matches the visible "Someday" label (a11y parity).
     const somedayBtn = await screen.findByRole(
       'button',
-      { name: `To someday: ${title}` },
+      { name: `Someday: ${title}` },
       { timeout: 5000 },
     )
     await userEvent.click(somedayBtn)

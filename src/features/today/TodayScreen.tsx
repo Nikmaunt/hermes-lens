@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { ActionChip } from '@/components/ActionChip'
 import { actionChipClass } from '@/components/actionChipStyles'
+import { CollapsibleSection } from '@/components/CollapsibleSection'
 import { DatePickerButton } from '@/components/DatePickerButton'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
@@ -10,7 +11,6 @@ import {
   Card,
   EmptyState,
   ErrorState,
-  SectionHeader,
   StaleBanner,
   TodaySkeleton,
 } from '@/components/primitives'
@@ -29,8 +29,15 @@ import { loadReadBriefIds } from '@/features/briefs/readStore'
 import { preferencesKV } from '@/data/kv'
 import { useData } from '@/data/DataSourceProvider'
 import { useSnackbar } from '@/components/SnackbarProvider'
-import { useToday } from '@/hooks/queries'
+import { SomedayList } from '@/features/someday/SomedayList'
+import { useSomeday, useToday } from '@/hooks/queries'
 import { useFollowupAction, useFollowupUndo, useQueuedMutationsOf } from '@/hooks/mutations'
+import {
+  loadSectionChoices,
+  saveSectionChoices,
+  type SectionChoices,
+  type TodaySectionId,
+} from './sectionStore'
 import { useSettings } from '@/settings/SettingsProvider'
 import { formatDate, formatDay, formatTime } from '@/lib/dates'
 import { snoozeNextMonday, snoozeTomorrow } from '@/lib/snooze'
@@ -56,6 +63,7 @@ const UNDO_WINDOW_MS = 5000
 
 export function TodayScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useToday()
+  const somedayItems = useSomeday().data?.items
   const { settings } = useSettings()
   const navigate = useNavigate()
   const snackbar = useSnackbar()
@@ -81,6 +89,36 @@ export function TodayScreen() {
   // and then lose to the late-arriving original.
   const [inflightIds, setInflightIds] = useState<ReadonlySet<string>>(new Set())
   const [snoozeMenuFor, setSnoozeMenuFor] = useState<string | null>(null)
+
+  // Collapse choices for the sections, kv-persisted per user tap. The ref
+  // mirrors the state so long-lived closures (the snackbar's View action)
+  // never write a stale map back; the async load merges UNDER any tap that
+  // beat it.
+  const [sectionChoices, setSectionChoices] = useState<SectionChoices>({})
+  const sectionChoicesRef = useRef<SectionChoices>({})
+  useEffect(() => {
+    void loadSectionChoices(preferencesKV).then((loaded) => {
+      sectionChoicesRef.current = { ...loaded, ...sectionChoicesRef.current }
+      setSectionChoices(sectionChoicesRef.current)
+    })
+  }, [])
+  const setSectionExpanded = (id: TodaySectionId, expanded: boolean) => {
+    const next = { ...sectionChoicesRef.current, [id]: expanded }
+    sectionChoicesRef.current = next
+    setSectionChoices(next)
+    void saveSectionChoices(preferencesKV, next)
+  }
+  const isExpanded = (id: TodaySectionId, dflt: boolean) => sectionChoices[id] ?? dflt
+  const toggleSection = (id: TodaySectionId, dflt: boolean) =>
+    setSectionExpanded(id, !isExpanded(id, dflt))
+
+  const somedaySectionRef = useRef<HTMLDivElement>(null)
+  /** The snackbar View action: open the Someday section and bring it on screen. */
+  const revealSomeday = () => {
+    setSectionExpanded('someday', true)
+    // Not implemented in jsdom — hence the optional call.
+    somedaySectionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
 
   const clearLocalAction = (id: string) =>
     setLocalActions((prev) => {
@@ -148,6 +186,10 @@ export function TodayScreen() {
             actionLabel: 'Undo',
             durationMs: UNDO_WINDOW_MS,
             onAction: () => undo(fu),
+            // "Where did it go?" — View opens the Someday section in place.
+            ...(req.action === 'someday'
+              ? { secondaryActionLabel: 'View', onSecondaryAction: revealSomeday }
+              : {}),
           })
         },
       },
@@ -193,6 +235,9 @@ export function TodayScreen() {
   useEffect(() => {
     void loadReadBriefIds(preferencesKV).then(setReadBriefIds)
   }, [data?.brief?.id])
+
+  // Gone cards drop from the list AND the header count — they must agree.
+  const visibleFollowUps = data?.followUps.filter((fu) => !goneIds.has(fu.id)) ?? []
 
   return (
     <Screen title={data !== undefined ? formatDay(data.date) : 'Today'}>
@@ -283,13 +328,17 @@ export function TodayScreen() {
               </Card>
             )}
 
-            <SectionHeader>Open follow-ups</SectionHeader>
-            {data.followUps.length === 0 && (
+            <CollapsibleSection
+              title="Open follow-ups"
+              count={visibleFollowUps.length}
+              expanded={isExpanded('followups', true)}
+              onToggle={() => toggleSection('followups', true)}
+            >
+            {visibleFollowUps.length === 0 && (
               <div className="px-1 py-2 text-sm text-faint">Nothing waiting on you. Rare.</div>
             )}
             <div className="space-y-2">
-              {data.followUps
-                .filter((fu) => !goneIds.has(fu.id))
+              {visibleFollowUps
                 .map((fu) => {
                   const pending = pendingActionFor(fu)
                   return (
@@ -351,7 +400,7 @@ export function TodayScreen() {
                               Snooze
                             </ActionChip>
                             <ActionChip
-                              ariaLabel={`To someday: ${fu.title}`}
+                              ariaLabel={`Someday: ${fu.title}`}
                               onClick={() => act(fu, { action: 'someday' })}
                             >
                               <ArchiveIcon size={14} aria-hidden />
@@ -390,8 +439,13 @@ export function TodayScreen() {
                   )
                 })}
             </div>
+            </CollapsibleSection>
 
-            <SectionHeader
+            <CollapsibleSection
+              title="Deadlines"
+              count={data.deadlines.length}
+              expanded={isExpanded('deadlines', data.deadlines.length > 0)}
+              onToggle={() => toggleSection('deadlines', data.deadlines.length > 0)}
               right={
                 <button
                   onClick={() => void navigate('/documents')}
@@ -401,8 +455,6 @@ export function TodayScreen() {
                 </button>
               }
             >
-              Deadlines
-            </SectionHeader>
             {data.deadlines.length === 0 && (
               <div className="px-1 py-2 text-sm text-faint">Nothing due in the next 30 days.</div>
             )}
@@ -422,8 +474,32 @@ export function TodayScreen() {
                 </Card>
               ))}
             </div>
+            </CollapsibleSection>
 
-            <SectionHeader
+            {/* Parked items, between the dated sections and the agent noise —
+                same list and mutations as the Someday screen. */}
+            <div ref={somedaySectionRef}>
+              <CollapsibleSection
+                title="Someday"
+                count={somedayItems?.length}
+                expanded={isExpanded('someday', false)}
+                onToggle={() => toggleSection('someday', false)}
+              >
+                {somedayItems !== undefined &&
+                  (somedayItems.length === 0 ? (
+                    <div className="px-1 py-2 text-sm text-faint">
+                      Nothing parked for someday.
+                    </div>
+                  ) : (
+                    <SomedayList items={somedayItems} />
+                  ))}
+              </CollapsibleSection>
+            </div>
+
+            <CollapsibleSection
+              title="Agent, last 24 h"
+              expanded={isExpanded('agent', false)}
+              onToggle={() => toggleSection('agent', false)}
               right={
                 <button
                   onClick={() => void navigate('/timeline')}
@@ -433,8 +509,6 @@ export function TodayScreen() {
                 </button>
               }
             >
-              Agent, last 24 h
-            </SectionHeader>
             {data.agentActivity.length === 0 && (
               <div className="px-1 py-2 text-sm text-faint">The agent has been quiet.</div>
             )}
@@ -465,6 +539,7 @@ export function TodayScreen() {
                 )
               })}
             </div>
+            </CollapsibleSection>
           </>
         )}
       </PullToRefresh>
