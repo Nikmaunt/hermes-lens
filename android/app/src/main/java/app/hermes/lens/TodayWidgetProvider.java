@@ -61,6 +61,7 @@ public class TodayWidgetProvider extends AppWidgetProvider {
         int followUpCount;
         int inbox;
         String deadline = ""; // empty = none
+        String brief = "";    // empty = none (v1 or a snapshot without the field)
         String health = "";   // empty = unknown (v1)
         String updatedAt = "";
         long updatedAtEpoch;  // 0 = unknown (v1)
@@ -181,6 +182,8 @@ public class TodayWidgetProvider extends AppWidgetProvider {
                 s.inbox = json.optInt("inbox", 0);
                 // JSON null → empty string, either way "no deadline".
                 s.deadline = json.isNull("deadline") ? "" : json.optString("deadline", "");
+                // Additive v2.1 field: absent in older v2 snapshots → no brief.
+                s.brief = json.isNull("brief") ? "" : json.optString("brief", "");
                 s.health = json.optString("health", "");
                 s.updatedAtEpoch = json.optLong("updatedAtEpoch", 0L);
             } else {
@@ -220,6 +223,8 @@ public class TodayWidgetProvider extends AppWidgetProvider {
 
         for (int id : ROW_IDS) views.setViewVisibility(id, android.view.View.GONE);
         views.setViewVisibility(R.id.widget_message, android.view.View.GONE);
+        views.setViewVisibility(R.id.widget_brief, android.view.View.GONE);
+        views.setViewVisibility(R.id.widget_inbox, android.view.View.GONE);
 
         if (!s.present) {
             showMessage(views, "Open the app to sync");
@@ -236,17 +241,30 @@ public class TodayWidgetProvider extends AppWidgetProvider {
             return views;
         }
 
+        // Today's brief, one line above the rows (v2.1 additive field).
+        if (!s.brief.isEmpty()) {
+            views.setViewVisibility(R.id.widget_brief, android.view.View.VISIBLE);
+            views.setTextViewText(R.id.widget_brief, "Brief · " + s.brief);
+        }
+
         if (!s.v2) {
             // Upgrade window: old payload still renders its counts line.
             showMessage(views, s.followUpCount + " follow-ups · " + s.inbox + " inbox");
         } else if (s.titles.isEmpty()) {
-            showMessage(views, "No open follow-ups");
+            showMessage(views, "All clear — no open follow-ups");
         } else {
             for (int i = 0; i < s.titles.size(); i++) {
                 views.setViewVisibility(ROW_IDS[i], android.view.View.VISIBLE);
                 views.setTextViewText(TITLE_IDS[i], s.titles.get(i));
                 renderBadge(context, views, BADGE_IDS[i], s.dues.get(i));
             }
+        }
+
+        // "Inbox N" chip in the footer, only when something waits (v2 only:
+        // the v1 counts line above already includes the inbox).
+        if (s.v2 && s.inbox > 0) {
+            views.setViewVisibility(R.id.widget_inbox, android.view.View.VISIBLE);
+            views.setTextViewText(R.id.widget_inbox, "Inbox " + s.inbox);
         }
 
         views.setTextViewText(R.id.widget_deadline,
@@ -304,7 +322,16 @@ public class TodayWidgetProvider extends AppWidgetProvider {
         } else if (!s.v2) {
             line = s.followUpCount + " follow-ups · " + s.inbox + " inbox";
         } else if (s.followUpCount == 0) {
-            line = "All clear";
+            // The one line stays follow-up/deadline first; the inbox count
+            // only rides along when nothing else claims the space. The brief
+            // never fits the 4×1 row.
+            if (s.inbox > 0) {
+                line = "All clear · Inbox " + s.inbox;
+            } else if (!s.deadline.isEmpty()) {
+                line = "All clear · " + s.deadline;
+            } else {
+                line = "All clear";
+            }
         } else {
             String next = s.titles.isEmpty() ? "" : s.titles.get(0);
             String due = s.dues.isEmpty() ? "" : s.dues.get(0);

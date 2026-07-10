@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  4×2 layout: header (brand · updated), three follow-up rows
-  (title + due badge), footer (next deadline · agent health).
-  All colors come from widget_colors.xml (values / values-night).
+  4×2 layout: header (brand · updated), optional one-line brief, three
+  follow-up rows (title + due badge), footer (next deadline · inbox ·
+  agent health). All colors come from widget_colors.xml (values /
+  values-night).
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
@@ -49,6 +50,18 @@
         android:textColor="@color/widget_ink"
         android:textSize="14sp"
         android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:visibility="gone" />
+
+    <!-- Today's brief (v2.1 additive field): hidden when the snapshot has none. -->
+    <TextView
+        android:id="@+id/widget_brief"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/widget_muted"
+        android:textSize="11sp"
         android:maxLines="1"
         android:ellipsize="end"
         android:visibility="gone" />
@@ -184,6 +197,18 @@
             android:maxLines="1"
             android:ellipsize="end"
             android:fontFeatureSettings="tnum" />
+
+        <!-- "Inbox N" (v2 field): hidden when the inbox is empty. -->
+        <TextView
+            android:id="@+id/widget_inbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="@color/widget_accent"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:fontFeatureSettings="tnum"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/widget_health"
