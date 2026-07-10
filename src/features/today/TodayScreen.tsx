@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { ActionChip } from '@/components/ActionChip'
+import { actionChipClass } from '@/components/actionChipStyles'
 import { DatePickerButton } from '@/components/DatePickerButton'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
@@ -320,67 +322,63 @@ export function TodayScreen() {
                                   : 'snoozed'}
                           </span>
                           {!inflightIds.has(fu.id) && (
-                            <button
-                              aria-label={`Undo: ${fu.title}`}
-                              onClick={() => undo(fu)}
-                              className="bg-raised flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
-                            >
+                            <ActionChip ariaLabel={`Undo: ${fu.title}`} onClick={() => undo(fu)}>
                               Undo
-                            </button>
+                            </ActionChip>
                           )}
                         </div>
                       ) : (
                         <>
-                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                            <button
-                              aria-label={`Done: ${fu.title}`}
+                          {/* A single non-wrapping chip row — the card must not
+                              grow into a wall of buttons on a 360dp screen. */}
+                          <div className="mt-2.5 flex items-center gap-2">
+                            <ActionChip
+                              tone="accent"
+                              ariaLabel={`Done: ${fu.title}`}
                               onClick={() => act(fu, { action: 'done' })}
-                              className="bg-ok-dim text-ok flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium active:opacity-70"
                             >
-                              <CheckIcon size={16} aria-hidden />
+                              <CheckIcon size={14} aria-hidden />
                               Done
-                            </button>
-                            <button
-                              aria-label={`Snooze: ${fu.title}`}
-                              aria-expanded={snoozeMenuFor === fu.id}
+                            </ActionChip>
+                            <ActionChip
+                              ariaLabel={`Snooze: ${fu.title}`}
+                              ariaExpanded={snoozeMenuFor === fu.id}
                               onClick={() =>
                                 setSnoozeMenuFor(snoozeMenuFor === fu.id ? null : fu.id)
                               }
-                              className="bg-raised flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
                             >
-                              <ClockIcon size={16} aria-hidden />
+                              <ClockIcon size={14} aria-hidden />
                               Snooze
-                            </button>
-                            <button
-                              aria-label={`To someday: ${fu.title}`}
+                            </ActionChip>
+                            <ActionChip
+                              ariaLabel={`To someday: ${fu.title}`}
                               onClick={() => act(fu, { action: 'someday' })}
-                              className="bg-raised flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
                             >
-                              <ArchiveIcon size={16} aria-hidden />
-                              To someday
-                            </button>
+                              <ArchiveIcon size={14} aria-hidden />
+                              Someday
+                            </ActionChip>
                           </div>
                           {snoozeMenuFor === fu.id && (
                             <div className="animate-expand mt-2 flex flex-wrap items-center gap-2">
-                              <button
+                              <ActionChip
+                                tone="outline"
                                 onClick={() => act(fu, { action: 'snooze', until: snoozeTomorrow() })}
-                                className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"
                               >
                                 Tomorrow
-                              </button>
-                              <button
+                              </ActionChip>
+                              <ActionChip
+                                tone="outline"
                                 onClick={() =>
                                   act(fu, { action: 'snooze', until: snoozeNextMonday() })
                                 }
-                                className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"
                               >
                                 Next Monday
-                              </button>
+                              </ActionChip>
                               <DatePickerButton
                                 min={snoozeTomorrow()}
                                 inputLabel="Snooze until date"
                                 onPick={(date) => act(fu, { action: 'snooze', until: date })}
-                                className="border-line bg-surface flex h-11 items-center rounded-full border px-4 text-sm font-medium text-muted active:bg-raised"
+                                className={actionChipClass('outline')}
                               >
                                 Pick a date…
                               </DatePickerButton>

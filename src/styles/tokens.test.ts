@@ -74,6 +74,11 @@ describe.each(Object.entries(themes))('%s theme control contrast', (name, t) => 
     expect(pair('--hl-accent', '--hl-raised')).toBeGreaterThanOrEqual(3)
   })
 
+  it('accent action chip (Done) reads on a card, its label reads on the fill', () => {
+    expect(pair('--hl-accent', '--hl-surface')).toBeGreaterThanOrEqual(3)
+    expect(pair('--hl-accent-ink', '--hl-accent')).toBeGreaterThanOrEqual(3)
+  })
+
   // Disabled controls are exempt from 1.4.11; the app dims them with
   // opacity-50 on top of these already-passing enabled states.
 

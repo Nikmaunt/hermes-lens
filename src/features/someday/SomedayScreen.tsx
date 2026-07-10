@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { ActionChip } from '@/components/ActionChip'
+import { actionChipClass } from '@/components/actionChipStyles'
 import { DatePickerButton } from '@/components/DatePickerButton'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
@@ -135,7 +137,7 @@ export function SomedayScreen() {
           <EmptyState
             icon={<ArchiveIcon size={30} />}
             title="Nothing parked for someday"
-            hint="Send a follow-up here with “To someday” and it waits without a due date."
+            hint="Send a follow-up here with “Someday” and it waits without a due date."
           />
         )}
         <div className="space-y-2">
@@ -168,35 +170,32 @@ export function SomedayScreen() {
                           : 'closed'}
                       </span>
                       {!inflightIds.has(item.id) && (
-                        <button
-                          aria-label={`Undo: ${item.title}`}
-                          onClick={() => undo(item)}
-                          className="bg-raised flex h-11 items-center justify-center rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
-                        >
+                        <ActionChip ariaLabel={`Undo: ${item.title}`} onClick={() => undo(item)}>
                           Undo
-                        </button>
+                        </ActionChip>
                       )}
                     </div>
                   ) : (
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    /* Same chip language as the Today follow-up row: one line,
+                       primary action accent, the rest neutral. */
+                    <div className="mt-2.5 flex items-center gap-2">
                       <DatePickerButton
                         min={snoozeTomorrow()}
                         inputLabel={`Activate date: ${item.title}`}
                         ariaLabel={`Activate: ${item.title}`}
                         onPick={(date) => act(item, { action: 'activate', date })}
-                        className="bg-accent-dim text-accent flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium active:opacity-70"
+                        className={actionChipClass('accent')}
                       >
-                        <CalendarIcon size={16} aria-hidden />
+                        <CalendarIcon size={14} aria-hidden />
                         Activate
                       </DatePickerButton>
-                      <button
-                        aria-label={`Close: ${item.title}`}
+                      <ActionChip
+                        ariaLabel={`Close: ${item.title}`}
                         onClick={() => act(item, { action: 'close' })}
-                        className="bg-raised flex h-11 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium text-muted active:opacity-70"
                       >
-                        <CheckIcon size={16} aria-hidden />
+                        <CheckIcon size={14} aria-hidden />
                         Close
-                      </button>
+                      </ActionChip>
                     </div>
                   )}
                 </Card>
