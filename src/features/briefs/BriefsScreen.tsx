@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
@@ -15,7 +15,7 @@ import { CheckCheckIcon, NewspaperIcon, PinIcon } from '@/components/icons'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { preferencesKV } from '@/data/kv'
 import { useBriefs } from '@/hooks/queries'
-import { formatDay } from '@/lib/dates'
+import { formatDay, toIsoDate } from '@/lib/dates'
 import type { BriefKind, BriefListItem } from '@/schemas'
 import { UnreadDot } from './UnreadDot'
 import { loadPinnedBriefIds, toggleBriefPin } from './pinStore'
@@ -80,6 +80,50 @@ function BriefRow({
   )
 }
 
+/**
+ * History row: past briefs are archive, not news — title only, no kind
+ * badge (the feed is almost all morning briefs; the date lives in the
+ * group separator right above). Pin and unread state stay tappable.
+ */
+function CompactBriefRow({
+  brief,
+  read,
+  pinned,
+  onOpen,
+  onTogglePin,
+}: {
+  brief: BriefListItem
+  read: boolean
+  pinned: boolean
+  onOpen: () => void
+  onTogglePin: () => void
+}) {
+  return (
+    <div className="flex min-h-11 w-full items-center gap-2 border-b border-line last:border-0">
+      <button
+        onClick={onOpen}
+        className="active:bg-raised flex min-w-0 flex-1 items-center gap-2 self-stretch py-2.5 pl-1 text-left transition-colors"
+      >
+        {!read && <UnreadDot />}
+        <span className="truncate text-sm leading-snug text-muted">{brief.title}</span>
+      </button>
+      <button
+        aria-label={pinned ? 'Unpin' : 'Pin'}
+        aria-pressed={pinned}
+        onClick={onTogglePin}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full active:opacity-70"
+      >
+        <PinIcon
+          size={16}
+          className={pinned ? 'text-accent' : 'text-faint'}
+          fill={pinned ? 'currentColor' : 'none'}
+          aria-hidden
+        />
+      </button>
+    </div>
+  )
+}
+
 export function BriefsScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useBriefs()
   const navigate = useNavigate()
@@ -94,7 +138,13 @@ export function BriefsScreen() {
   }, [])
 
   const items = data?.items ?? []
-  const visible = filter === 'all' ? items : items.filter((b) => b.kind === filter)
+  // The Adhoc chip earns its place only once an adhoc brief exists; a
+  // filter left selected when its briefs vanish falls back to All.
+  const filters = FILTERS.filter(
+    (f) => f.key !== 'adhoc' || items.some((b) => b.kind === 'adhoc'),
+  )
+  const activeFilter = filters.some((f) => f.key === filter) ? filter : 'all'
+  const visible = activeFilter === 'all' ? items : items.filter((b) => b.kind === activeFilter)
   const pinnedItems = visible.filter((b) => pinnedIds.has(b.id))
   const unpinned = visible.filter((b) => !pinnedIds.has(b.id))
 
@@ -141,8 +191,12 @@ export function BriefsScreen() {
         )}
         {data !== undefined && (
           <div className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
-            {FILTERS.map((f) => (
-              <FilterChip key={f.key} active={filter === f.key} onClick={() => setFilter(f.key)}>
+            {filters.map((f) => (
+              <FilterChip
+                key={f.key}
+                active={activeFilter === f.key}
+                onClick={() => setFilter(f.key)}
+              >
                 {f.label}
               </FilterChip>
             ))}
@@ -155,15 +209,18 @@ export function BriefsScreen() {
             hint="The agent writes a morning brief once there is something worth telling you."
           />
         )}
-        {data !== undefined && items.length > 0 && visible.length === 0 && filter !== 'all' && (
+        {data !== undefined && items.length > 0 && visible.length === 0 && activeFilter !== 'all' && (
           <EmptyState
             icon={<NewspaperIcon size={30} />}
-            title={emptyFilterCopy[filter].title}
-            hint={emptyFilterCopy[filter].hint}
+            title={emptyFilterCopy[activeFilter].title}
+            hint={emptyFilterCopy[activeFilter].hint}
           />
         )}
+        {/* Sections stay flat siblings (no per-group wrapper): a wrapped
+            SectionHeader becomes its group's :first-child and loses the
+            mt-6 gap that keeps it off the previous group's last card. */}
         {pinnedItems.length > 0 && (
-          <div>
+          <>
             <SectionHeader>Pinned</SectionHeader>
             <div className="space-y-2">
               {pinnedItems.map((brief) => (
@@ -177,25 +234,33 @@ export function BriefsScreen() {
                 />
               ))}
             </div>
-          </div>
+          </>
         )}
-        {groups.map((group) => (
-          <div key={group.date}>
-            <SectionHeader>{formatDay(group.date)}</SectionHeader>
-            <div className="space-y-2">
-              {group.items.map((brief) => (
-                <BriefRow
-                  key={brief.id}
-                  brief={brief}
-                  read={readIds.has(brief.id)}
-                  pinned={false}
-                  onOpen={() => open(brief)}
-                  onTogglePin={() => togglePin(brief)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+        {groups.map((group) => {
+          // Today's briefs are news and keep the full card; older ones are
+          // archive and shrink to compact rows.
+          const isToday = group.date === toIsoDate(new Date())
+          return (
+            <Fragment key={group.date}>
+              <SectionHeader>{formatDay(group.date)}</SectionHeader>
+              <div className={isToday ? 'space-y-2' : undefined}>
+                {group.items.map((brief) => {
+                  const Row = isToday ? BriefRow : CompactBriefRow
+                  return (
+                    <Row
+                      key={brief.id}
+                      brief={brief}
+                      read={readIds.has(brief.id)}
+                      pinned={false}
+                      onOpen={() => open(brief)}
+                      onTogglePin={() => togglePin(brief)}
+                    />
+                  )
+                })}
+              </div>
+            </Fragment>
+          )
+        })}
       </PullToRefresh>
     </Screen>
   )

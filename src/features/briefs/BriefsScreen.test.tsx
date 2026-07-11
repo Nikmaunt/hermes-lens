@@ -2,8 +2,18 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '@/App'
+import { SnackbarProvider } from '@/components/SnackbarProvider'
+import type { DataSource } from '@/data/DataSource'
+import { DataContext } from '@/data/DataSourceProvider'
+import { createEndpointCache } from '@/data/cache'
+import { MemoryKV } from '@/data/kv'
+import { createMutationQueue } from '@/data/mutationQueue'
+import { SettingsProvider } from '@/settings/SettingsProvider'
+import type { BriefListItem } from '@/schemas'
+import { BriefsScreen } from './BriefsScreen'
 
 // Vitest runs without injected globals, so RTL's auto-cleanup never registers.
 afterEach(cleanup)
@@ -66,7 +76,7 @@ describe('briefs', () => {
   )
 
   it(
-    'lists briefs in More grouped by day with kind badges and unread dots',
+    'lists briefs in More grouped by day; kind badges only on today\'s cards',
     { timeout: TEST_TIMEOUT },
     async () => {
       await bootToToday()
@@ -80,9 +90,10 @@ describe('briefs', () => {
           ).toBeInTheDocument(),
         { timeout: 5000 },
       )
-      // Kind badges for both kinds are on screen.
-      expect(screen.getAllByText('morning').length).toBeGreaterThanOrEqual(2)
-      expect(screen.getAllByText('adhoc').length).toBeGreaterThanOrEqual(1)
+      // Kind badges only on today's briefs — history rows drop them (the
+      // kind is redundant in a mostly-morning feed).
+      expect(screen.getAllByText('morning')).toHaveLength(1)
+      expect(screen.getAllByText('adhoc')).toHaveLength(1)
 
       // The brief opened in the previous test is read; the others are not.
       // (waitFor: the list can render from the warm cache before the async
@@ -177,4 +188,103 @@ describe('briefs list upgrades', () => {
     await waitFor(() => expect(screen.queryByText('Pinned')).toBeNull())
     expect(within(rowOf()).getByRole('button', { name: 'Pin' })).toBeInTheDocument()
   })
+})
+
+describe('briefs list polish', () => {
+  it(
+    'date separators share one flow container, so the Today-style rhythm applies',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToBriefs()
+      const main = screen.getByRole('main')
+      const headings = within(main).getAllByRole('heading', { level: 2 })
+      expect(headings.length).toBeGreaterThanOrEqual(2)
+      // A header wrapped in a per-group div becomes its :first-child and
+      // loses the mt-6 gap — flat siblings keep the separator off the
+      // previous group's last card.
+      const containers = new Set(headings.map((h) => h.parentElement?.parentElement))
+      expect(containers.size).toBe(1)
+    },
+  )
+
+  it(
+    'past briefs are compact rows without the kind badge; today keeps the card',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToBriefs()
+
+      const pastRow = screen
+        .getByRole('button', { name: /Morning brief — gym day, one deadline moved/ })
+        .closest('div') as HTMLElement
+      expect(within(pastRow).queryByText('morning')).toBeNull()
+
+      const todayRow = screen
+        .getByRole('button', { name: /Morning brief — quiet day, two things need you/ })
+        .closest('div') as HTMLElement
+      expect(within(todayRow).getByText('morning')).toBeInTheDocument()
+
+      // Compact rows still carry the pin affordance and the unread dot.
+      expect(within(pastRow).getByRole('button', { name: 'Pin' })).toBeInTheDocument()
+    },
+  )
+})
+
+/** BriefsScreen with an injected data source, for shapes the fixtures never take. */
+function renderBriefsWith(items: BriefListItem[]) {
+  const kv = new MemoryKV()
+  const ds = {
+    kind: 'mock',
+    getBriefs: async () => ({ items }),
+  } as unknown as DataSource
+  const value = {
+    ds,
+    cache: createEndpointCache(kv),
+    queue: createMutationQueue(kv),
+    pendingCount: 0,
+    deadLetterCount: 0,
+  }
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <SettingsProvider>
+        <DataContext.Provider value={value}>
+          <SnackbarProvider>
+            <MemoryRouter initialEntries={['/briefs']}>
+              <BriefsScreen />
+            </MemoryRouter>
+          </SnackbarProvider>
+        </DataContext.Provider>
+      </SettingsProvider>
+    </QueryClientProvider>,
+  )
+}
+
+describe('adhoc filter visibility', () => {
+  it(
+    'hides the Adhoc chip while the data has no adhoc briefs; All stays',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      renderBriefsWith([
+        { id: 'b-m1', date: '2026-07-10', title: 'Morning brief — calm day', kind: 'morning' },
+        { id: 'b-m2', date: '2026-07-09', title: 'Morning brief — errands', kind: 'morning' },
+      ])
+      await screen.findByText('Morning brief — calm day', undefined, { timeout: 5000 })
+      expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Morning' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Adhoc' })).toBeNull()
+    },
+  )
+
+  it(
+    'shows the Adhoc chip as soon as an adhoc brief exists',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      renderBriefsWith([
+        { id: 'b-m1', date: '2026-07-10', title: 'Morning brief — calm day', kind: 'morning' },
+        { id: 'b-a1', date: '2026-07-10', title: 'Heads-up: parcel arriving', kind: 'adhoc' },
+      ])
+      await screen.findByText('Heads-up: parcel arriving', undefined, { timeout: 5000 })
+      expect(screen.getByRole('button', { name: 'Adhoc' })).toBeInTheDocument()
+    },
+  )
 })
