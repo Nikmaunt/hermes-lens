@@ -38,7 +38,7 @@ const ITEMS: readonly {
 
 export function MoreScreen() {
   const navigate = useNavigate()
-  const { pendingCount } = useData()
+  const { pendingCount, deadLetterCount } = useData()
 
   return (
     <Screen title="More">
@@ -60,6 +60,12 @@ export function MoreScreen() {
       {pendingCount > 0 && (
         <div className="mt-4 text-center text-xs text-faint">
           {pendingCount} action{pendingCount === 1 ? '' : 's'} waiting to sync
+        </div>
+      )}
+      {deadLetterCount > 0 && (
+        <div className={`${pendingCount > 0 ? 'mt-1' : 'mt-4'} text-center text-xs text-danger`}>
+          {deadLetterCount} action{deadLetterCount === 1 ? '' : 's'} failed to sync — review in
+          Settings
         </div>
       )}
     </Screen>

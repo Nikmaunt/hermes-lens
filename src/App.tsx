@@ -3,6 +3,7 @@ import { BrowserRouter, Outlet, Route, Routes, useLocation, useNavigate } from '
 import { Capacitor } from '@capacitor/core'
 import { AuthBanner } from './components/AuthBanner'
 import { BottomNav } from './components/BottomNav'
+import { DeadLetterNotifier } from './components/DeadLetterNotifier'
 import { SnackbarProvider } from './components/SnackbarProvider'
 import { ListSkeleton } from './components/primitives'
 import { DataSourceProvider } from './data/DataSourceProvider'
@@ -114,6 +115,7 @@ function Root() {
     <DataSourceProvider>
       <LockGate>
         <SnackbarProvider>
+          <DeadLetterNotifier />
           <BrowserRouter>
             <Routes>
               <Route element={<Shell />}>
