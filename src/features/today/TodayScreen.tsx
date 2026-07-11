@@ -30,7 +30,7 @@ import { preferencesKV } from '@/data/kv'
 import { useData } from '@/data/DataSourceProvider'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { SomedayList } from '@/features/someday/SomedayList'
-import { useSomeday, useToday } from '@/hooks/queries'
+import { useBriefs, useSomeday, useToday } from '@/hooks/queries'
 import { useFollowupAction, useFollowupUndo, useQueuedMutationsOf } from '@/hooks/mutations'
 import {
   loadSectionChoices,
@@ -64,7 +64,17 @@ const UNDO_WINDOW_MS = 5000
 
 export function TodayScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch, fetchedAt } = useToday()
-  const somedayItems = useSomeday().data?.items
+  const someday = useSomeday()
+  const somedayItems = someday.data?.items
+  // Shares the query the BottomNav badge reads — refreshing it here renews
+  // the badge, it does not add a request beyond the nav's own.
+  const briefs = useBriefs()
+
+  /** PTR renews everything this screen surfaces: the today payload, the
+   * someday section and the briefs unread badge. */
+  const refreshAll = async () => {
+    await Promise.all([refetch(), someday.refetch(), briefs.refetch()])
+  }
   const { settings } = useSettings()
   const navigate = useNavigate()
   const snackbar = useSnackbar()
@@ -247,7 +257,7 @@ export function TodayScreen() {
 
   return (
     <Screen title={data !== undefined ? formatDay(data.date) : 'Today'}>
-      <PullToRefresh onRefresh={refetch}>
+      <PullToRefresh onRefresh={refreshAll}>
         <StaleBanner since={staleSince} />
         {/* Always available — asks the agent directly, needs no loaded data. */}
         <Card onClick={() => void navigate('/chat')} className="mb-1">
