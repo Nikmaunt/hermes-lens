@@ -348,7 +348,8 @@ export function InboxScreen() {
   )
 }
 
-function SwipeCard({
+/** Exported for tests that exercise the fling timer directly. */
+export function SwipeCard({
   item,
   mapping,
   onDecide,
@@ -365,6 +366,20 @@ function SwipeCard({
   const [dragging, setDragging] = useState(false)
   const [leaving, setLeaving] = useState<Direction | null>(null)
   const origin = useRef<{ x: number; y: number } | null>(null)
+
+  // The 160 ms fling delay is animation, not grace: if the card unmounts
+  // inside that window the user's decision must commit right away — the
+  // parent's unmount-commit map only covers decisions that already reached
+  // decide(), and a timer firing after unmount would land in a dead one.
+  const flingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingCommit = useRef<(() => void) | null>(null)
+  useEffect(
+    () => () => {
+      if (flingTimer.current !== null) clearTimeout(flingTimer.current)
+      pendingCommit.current?.()
+    },
+    [],
+  )
 
   const direction: Direction | null =
     Math.abs(drag.x) < 30 && Math.abs(drag.y) < 30
@@ -398,8 +413,13 @@ function SwipeCard({
     const distance = Math.max(Math.abs(drag.x), Math.abs(drag.y))
     if (distance >= SWIPE_THRESHOLD_PX && direction !== null) {
       setLeaving(direction)
-      // Let the fling animation play, then commit.
-      setTimeout(() => onDecide(direction), 160)
+      // Let the fling animation play, then commit (or commit on unmount).
+      const commit = () => {
+        pendingCommit.current = null
+        onDecide(direction)
+      }
+      pendingCommit.current = commit
+      flingTimer.current = setTimeout(commit, 160)
     } else {
       setDrag({ x: 0, y: 0 })
       // A near-still pointer is a tap: reveal (or fold) the full note text.
