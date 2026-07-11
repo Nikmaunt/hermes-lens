@@ -14,6 +14,7 @@ export function CollapsibleSection({
   expanded,
   onToggle,
   right,
+  collapsedHint,
   children,
 }: {
   title: string
@@ -22,6 +23,12 @@ export function CollapsibleSection({
   expanded: boolean
   onToggle: () => void
   right?: ReactNode
+  /**
+   * One-line preview shown after the count only while collapsed, e.g. the
+   * first hidden item's title. Decorative (aria-hidden): the accessible
+   * name stays "Title · N".
+   */
+  collapsedHint?: string | undefined
   children: ReactNode
 }) {
   // Sections that start expanded must not play the reveal animation on the
@@ -48,6 +55,14 @@ export function CollapsibleSection({
             />
             <span className="truncate">{title}</span>
             {count !== undefined && <span className="tnum shrink-0">· {count}</span>}
+            {!expanded && collapsedHint !== undefined && (
+              <span
+                aria-hidden
+                className="min-w-0 truncate font-normal tracking-normal normal-case"
+              >
+                — {collapsedHint}
+              </span>
+            )}
           </button>
         </h2>
         {right}

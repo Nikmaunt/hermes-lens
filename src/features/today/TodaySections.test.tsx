@@ -240,6 +240,43 @@ describe('collapsible Today sections', () => {
   )
 
   it(
+    'a collapsed Someday header previews the first parked item; expanding drops it',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await resetSectionChoices()
+      renderTodayWith({
+        kind: 'mock',
+        getToday: () => Promise.resolve(emptyToday),
+        getSomeday: () =>
+          Promise.resolve({
+            items: [
+              { id: 'sd-a', title: 'Book a dentist check-up for autumn', source: 'chat' },
+              { id: 'sd-b', title: 'Try the wood carving workshop', source: 'chat' },
+            ],
+            generatedAt: '2026-07-10T08:00:00+02:00',
+          }),
+      } as unknown as Partial<DataSource>)
+
+      // Collapsed: the hint teases the first item; the accessible name stays
+      // "Someday · 2" (the preview is decorative, aria-hidden).
+      const header = await screen.findByRole(
+        'button',
+        { name: /^someday ?· 2$/i },
+        { timeout: 5000 },
+      )
+      expect(header).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.getByText('— Book a dentist check-up for autumn')).toBeInTheDocument()
+
+      // Expanded: the hint disappears, the real cards take over.
+      await userEvent.click(header)
+      expect(screen.queryByText('— Book a dentist check-up for autumn')).toBeNull()
+      expect(
+        await screen.findByText('Book a dentist check-up for autumn'),
+      ).toBeInTheDocument()
+    },
+  )
+
+  it(
     'someday actions on Today go through ds.somedayAction — the same mutation path',
     { timeout: TEST_TIMEOUT },
     async () => {

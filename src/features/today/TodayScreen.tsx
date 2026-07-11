@@ -498,6 +498,8 @@ export function TodayScreen() {
               <CollapsibleSection
                 title="Someday"
                 count={somedayItems?.length}
+                // Collapsed by default, so the header teases what is parked.
+                collapsedHint={somedayItems?.[0]?.title}
                 expanded={isExpanded('someday', false)}
                 onToggle={() => toggleSection('someday', false)}
               >
