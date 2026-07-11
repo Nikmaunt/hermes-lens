@@ -246,8 +246,10 @@ export function ErrorState({
 }
 
 /**
- * Blocking confirmation for destructive actions (remove PIN, discard a
- * queued action). Small, centered, and impossible to trigger by accident.
+ * Blocking confirmation for consequential actions (remove PIN, discard a
+ * queued action, queue an agent command). Small, centered, and impossible
+ * to trigger by accident. Destructive by default; `tone="accent"` styles
+ * the confirm button for a committing-but-constructive action.
  */
 export function ConfirmDialog({
   title,
@@ -255,12 +257,14 @@ export function ConfirmDialog({
   confirmLabel,
   onConfirm,
   onCancel,
+  tone = 'danger',
 }: {
   title: string
   body: string
   confirmLabel: string
   onConfirm: () => void
   onCancel: () => void
+  tone?: 'danger' | 'accent'
 }) {
   return (
     <div
@@ -281,7 +285,9 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className="bg-danger-dim text-danger rounded-full px-4 py-2 text-sm font-semibold active:opacity-70"
+            className={`rounded-full px-4 py-2 text-sm font-semibold active:opacity-70 ${
+              tone === 'accent' ? 'bg-accent text-accent-ink' : 'bg-danger-dim text-danger'
+            }`}
           >
             {confirmLabel}
           </button>
