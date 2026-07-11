@@ -67,6 +67,26 @@ describe('chat transcript store', () => {
     expect(t.messages[0]?.text).not.toBe('q0')
   })
 
+  it('applies the cap on load too — an oversized stored record trims to the newest 50', async () => {
+    // A record written by an older build (or edited by hand) can exceed the
+    // append-time cap; loading must not render 60 messages.
+    const kv = new MemoryKV()
+    const messages = Array.from({ length: 60 }, (_, n) => ({
+      role: n % 2 === 0 ? ('user' as const) : ('assistant' as const),
+      text: `m${n}`,
+      at: '2026-07-08T13:11:28+02:00',
+    }))
+    await kv.set(TRANSCRIPT_KEY, JSON.stringify({ sessionId: 'sess-1', messages }))
+
+    const t = await loadTranscript(kv)
+    expect(t.messages).toHaveLength(CHAT_TRANSCRIPT_LIMIT)
+    // Newest kept…
+    expect(t.messages[t.messages.length - 1]?.text).toBe('m59')
+    expect(t.messages[0]?.text).toBe('m10')
+    // …session untouched.
+    expect(t.sessionId).toBe('sess-1')
+  })
+
   it('treats malformed persisted data as an empty transcript', async () => {
     const kv = new MemoryKV()
     await kv.set(TRANSCRIPT_KEY, 'not json')

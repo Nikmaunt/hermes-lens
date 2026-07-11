@@ -58,7 +58,12 @@ export async function loadTranscript(kv: KV): Promise<ChatTranscript> {
     const parsed: unknown = JSON.parse(raw)
     // Defensive: a partial or corrupt record reads as an empty conversation
     // rather than crashing the screen.
-    return isChatTranscript(parsed) ? parsed : empty()
+    if (!isChatTranscript(parsed)) return empty()
+    // The cap holds on load too — a record that outgrew the append-time trim
+    // (older build, hand-edited store) must not render unbounded.
+    return parsed.messages.length > CHAT_TRANSCRIPT_LIMIT
+      ? { ...parsed, messages: parsed.messages.slice(-CHAT_TRANSCRIPT_LIMIT) }
+      : parsed
   } catch {
     return empty()
   }
