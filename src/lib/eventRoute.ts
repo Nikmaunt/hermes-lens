@@ -8,7 +8,8 @@ export interface EventTarget {
 
 /**
  * Where a timeline event or Today activity row leads on tap. One map for
- * both screens so they can never disagree.
+ * both screens so they can never disagree — the Timeline overrides only the
+ * system case via `timelineEventTarget` below.
  *
  * `null` means the row deliberately has no destination: agent events (cron
  * runs, chat sessions, briefs) have no detail view by design — their bodies
@@ -44,4 +45,20 @@ export function eventTarget(
     case 'agent':
       return null
   }
+}
+
+/**
+ * Tap target for Timeline rows specifically. System events differ from the
+ * shared map: on the Timeline they are mostly journal records (notification
+ * captures, queued triages, sync acks) and /status shows live agent state,
+ * not the tapped event — a blind jump. Those rows expand in place instead,
+ * like agent rows. Today's digest keeps `eventTarget` — it has no expansion
+ * affordance.
+ */
+export function timelineEventTarget(
+  category: EventCategory,
+  relatedId: string | null = null,
+): EventTarget | null {
+  if (category === 'system') return null
+  return eventTarget(category, relatedId)
 }

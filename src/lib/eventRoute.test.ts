@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EventCategory } from '@/schemas'
-import { eventTarget } from './eventRoute'
+import { eventTarget, timelineEventTarget } from './eventRoute'
 
 describe('eventTarget', () => {
   it('routes every category somewhere or deliberately nowhere', () => {
@@ -38,5 +38,27 @@ describe('eventTarget', () => {
 
   it('system events go to Status without a highlight (nothing to flash there)', () => {
     expect(eventTarget('system', 'anything')).toEqual({ route: '/status' })
+  })
+})
+
+describe('timelineEventTarget', () => {
+  it('keeps entity categories navigable, highlight hint included', () => {
+    expect(timelineEventTarget('capture', 'in-8')).toEqual({
+      route: '/inbox',
+      highlightId: 'in-8',
+    })
+    expect(timelineEventTarget('habit', 'habit-gym')).toEqual({
+      route: '/habits',
+      highlightId: 'habit-gym',
+    })
+  })
+
+  it('system events expand in place — the tap never opens Status', () => {
+    expect(timelineEventTarget('system', 'notif-record-id')).toBeNull()
+    expect(timelineEventTarget('system')).toBeNull()
+  })
+
+  it('agent events stay non-navigable', () => {
+    expect(timelineEventTarget('agent', 'in-5')).toBeNull()
   })
 })

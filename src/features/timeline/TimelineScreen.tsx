@@ -4,16 +4,15 @@ import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
 import { FilterChip } from '@/components/FilterChip'
 import { EmptyState, ErrorState, FeedSkeleton, StaleBanner } from '@/components/primitives'
-import { useSnackbar } from '@/components/SnackbarProvider'
 import { useData } from '@/data/DataSourceProvider'
 import { useTimeline } from '@/hooks/queries'
 import { useHighlightScroll } from '@/hooks/useHighlightScroll'
 import { formatDay, formatTime, toIsoDate } from '@/lib/dates'
-import { eventTarget } from '@/lib/eventRoute'
+import { timelineEventTarget } from '@/lib/eventRoute'
 import { plainNoteText } from '@/lib/noteText'
 import { EventCategory, type TimelineEvent } from '@/schemas'
 import { CATEGORY_META } from '@/lib/categoryMeta'
-import { ChevronRightIcon, WavesIcon } from '@/components/icons'
+import { ChevronDownIcon, ChevronRightIcon, WavesIcon } from '@/components/icons'
 
 function groupByDay(events: TimelineEvent[]): [string, TimelineEvent[]][] {
   const groups = new Map<string, TimelineEvent[]>()
@@ -31,7 +30,9 @@ export function TimelineScreen() {
   const { data, staleSince, errorKind, isLoading, error, refetch } = useTimeline(category)
   const { ds } = useData()
   const navigate = useNavigate()
-  const snackbar = useSnackbar()
+  // System and agent events open in place (no detail screen behind them);
+  // one row at a time, like the inbox cards.
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [older, setOlder] = useState<TimelineEvent[]>([])
   const [olderCursor, setOlderCursor] = useState<string | null>(null)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -105,12 +106,13 @@ export function TimelineScreen() {
             <div>
               {dayEvents.map((event) => {
                 const CategoryIcon = CATEGORY_META[event.category].icon
-                const target = eventTarget(event.category, event.relatedId)
+                const target = timelineEventTarget(event.category, event.relatedId)
+                const expanded = expandedId === event.id
                 const open = () => {
                   if (target === null) {
-                    // Agent sessions have no detail view by design — say so
-                    // instead of silently ignoring the tap.
-                    snackbar.show({ message: `${event.title} — runs privately, no detail view` })
+                    // No detail screen behind this event — unfold what the
+                    // response carries right here instead.
+                    setExpandedId(expanded ? null : event.id)
                     return
                   }
                   void navigate(
@@ -125,6 +127,7 @@ export function TimelineScreen() {
                   key={event.id}
                   data-item-id={event.id}
                   onClick={open}
+                  {...(target === null ? { 'aria-expanded': expanded } : {})}
                   className="active:bg-raised flex min-h-11 w-full gap-3 border-b border-line py-3 text-left transition-colors last:border-0"
                 >
                   <span className="pt-0.5 text-faint" aria-hidden>
@@ -137,11 +140,40 @@ export function TimelineScreen() {
                         {plainNoteText(event.detail)}
                       </div>
                     )}
+                    {expanded && (
+                      <div className="mt-2 space-y-1 border-t border-line pt-2 text-caption text-faint">
+                        <div className="flex gap-3">
+                          <span className="w-10 shrink-0">Type</span>
+                          <span className="text-muted">{CATEGORY_META[event.category].label}</span>
+                        </div>
+                        <div className="flex gap-3">
+                          <span className="w-10 shrink-0">Time</span>
+                          <span className="tnum text-muted">
+                            {formatDay(toIsoDate(new Date(event.at)))} · {formatTime(event.at)}
+                          </span>
+                        </div>
+                        {event.relatedId !== null && (
+                          <div className="flex gap-3">
+                            <span className="w-10 shrink-0">Ref</span>
+                            <span className="tnum break-all text-muted">{event.relatedId}</span>
+                          </div>
+                        )}
+                        {event.category === 'agent' && (
+                          <p className="pt-1">Runs privately — the transcript stays on the VPS.</p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <span className="flex items-start gap-0.5 pt-0.5">
                     <span className="tnum text-caption text-faint">{formatTime(event.at)}</span>
-                    {target !== null && (
+                    {target !== null ? (
                       <ChevronRightIcon size={13} className="mt-px text-faint" aria-hidden />
+                    ) : (
+                      <ChevronDownIcon
+                        size={13}
+                        className={`mt-px text-faint transition-transform ${expanded ? 'rotate-180' : ''}`}
+                        aria-hidden
+                      />
                     )}
                   </span>
                 </button>

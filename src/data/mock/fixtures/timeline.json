@@ -2,6 +2,7 @@
   "events": [
     { "id": "ev-1", "at": "@t-0@07:58", "category": "agent", "title": "Morning brief sent", "detail": "5 follow-ups, 2 deadlines in the next 10 days, 8 inbox items.", "relatedId": null },
     { "id": "ev-2", "at": "@t-0@07:44", "category": "capture", "title": "Captured: landlord approval template idea", "detail": null, "relatedId": "in-8" },
+    { "id": "ev-2n", "at": "@t-0@07:31", "category": "system", "title": "Notification captured", "detail": "1751955060000-whatsapp-9f3a2b1c", "relatedId": "1751955060000-whatsapp-9f3a2b1c" },
     { "id": "ev-3", "at": "@t-0@03:30", "category": "agent", "title": "Memory distillation run", "detail": "2 new facts, 1 fact updated, 0 conflicts.", "relatedId": null },
     { "id": "ev-4", "at": "@t-0@02:04", "category": "system", "title": "Vault backup completed", "detail": "46 MB → object storage, verified.", "relatedId": null },
     { "id": "ev-5", "at": "@t-1@22:30", "category": "capture", "title": "Captured: sauna Saturday, confirm by Wednesday", "detail": null, "relatedId": "in-6" },
