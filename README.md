@@ -2,15 +2,21 @@
 
 Personal Android dashboard for the Hermes self-hosted AI agent — a private,
 single-user, sideloaded app that visualizes the agent's "brain": memory,
-timeline, projects, people, documents, habits, flashcards, and a fast capture
-inbox. Built mock-first: fully functional offline on bundled fake data; later
-it connects to a small read-only JSON API on the VPS (see
+timeline, projects, people, documents, habits, briefs, agent chat, and a fast
+capture inbox. Built mock-first: fully functional offline on bundled fake
+data; later it connects to a small read-only JSON API on the VPS (see
 [API-CONTRACT.md](API-CONTRACT.md)).
 
 **Privacy stance:** no telemetry, no crash reporting, no push services, no
-third-party network calls. Only two Android permissions: `INTERNET` and
-`USE_BIOMETRIC`. Network requests happen only while the app is in the
-foreground; there are no background services.
+third-party network calls. Five Android permissions: `INTERNET` and
+`USE_BIOMETRIC`, plus three runtime-gated ones — `READ_CALENDAR` /
+`WRITE_CALENDAR` (reminder → calendar sync, local "Hermes" calendar by
+default) and `RECORD_AUDIO` (voice capture through the on-device
+recognizer). One system-bound service: the notification listener, active
+only after you grant notification access, capturing only the apps you
+allowlist. Network requests still happen only while the app is in the
+foreground — captured notifications are buffered on-device and replayed
+on the next open.
 
 ## Stack
 
@@ -95,15 +101,16 @@ reveal, regardless of the app-lock setting.
 src/schemas/        zod schemas — the API contract, types inferred from them
 src/data/           DataSource interface, Mock + Api implementations,
                     offline cache, offline mutation queue, mock fixtures
-src/features/       one folder per screen (17 features)
+src/features/       one folder per screen
 src/components/     small local UI primitives (no UI kit)
-src/lib/            pure logic: SM-2 scheduler, streaks, dates, PIN hashing
-android/            Capacitor Android project + native widget
-                    (TodayWidgetProvider.java, WidgetBridgePlugin.java)
+src/lib/            pure logic: streaks, snooze, dates, PIN hashing
+android/            Capacitor Android project + native widget and
+                    notification listener (TodayWidgetProvider.java,
+                    WidgetBridgePlugin.java, HermesNotificationListenerService.java)
 ```
 
 ## Tests
 
-`npm test` runs the unit suite: SM-2 scheduler, streak math, offline queue,
-endpoint cache, PIN hashing, date utilities, the fixture↔schema contract
-test, and a full-app smoke test (boots the app on mock data in jsdom).
+`npm test` runs the unit suite: streak math, offline queue, endpoint cache,
+PIN hashing, date utilities, the fixture↔schema contract test, and a
+full-app smoke test (boots the app on mock data in jsdom).
