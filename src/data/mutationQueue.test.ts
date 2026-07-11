@@ -234,6 +234,34 @@ describe('mutation queue', () => {
     expect((await queue.peek())[0]?.id).toBe('q1')
   })
 
+  it('treats 401/403 as transient — an expired token must not park the queue', async () => {
+    // The AuthBanner already tells the user WHY nothing syncs; dead-lettering
+    // on auth would demand a manual retry per item after fixing the token.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+    await queue.enqueue(captureItem(2))
+
+    const expired = fakeDataSource(() =>
+      Promise.reject(new ApiError('Agent returned 401', 'auth', 401)),
+    )
+    expect(await queue.drain(expired)).toBe(0)
+    expect(await queue.count()).toBe(2)
+    expect(await queue.deadLetters()).toEqual([])
+
+    const forbidden = fakeDataSource(() =>
+      Promise.reject(new ApiError('Agent returned 403', 'auth', 403)),
+    )
+    expect(await queue.drain(forbidden)).toBe(0)
+    expect(await queue.count()).toBe(2)
+    expect(await queue.deadLetters()).toEqual([])
+
+    // Token fixed: the very next drain delivers everything, in order.
+    const fixed = fakeDataSource(() => Promise.resolve({}))
+    expect(await queue.drain(fixed)).toBe(2)
+    expect(await queue.count()).toBe(0)
+    expect(await queue.deadLetters()).toEqual([])
+  })
+
   it('keeps network failures and 5xx out of the dead-letter list', async () => {
     const queue = createMutationQueue(new MemoryKV())
     await queue.enqueue(captureItem(1))

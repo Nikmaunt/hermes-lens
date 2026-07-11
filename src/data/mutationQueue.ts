@@ -62,15 +62,18 @@ function httpStatus(err: unknown): number | null {
 }
 
 /**
- * A 4xx (except 408 Request Timeout and 429 Too Many Requests) means the
- * server understood the request and said no — retrying the same bytes will
- * never succeed, so the item must not block the queue (F5). Everything else
- * (network failure, timeout, 5xx, 408/429) is assumed transient.
+ * A 4xx means the server understood the request and said no — retrying the
+ * same bytes will never succeed, so the item must not block the queue (F5).
+ * Exceptions, all transient: 408 Request Timeout, 429 Too Many Requests,
+ * and 401/403 — those reject the TOKEN, not the payload; once the user
+ * fixes it (AuthBanner says why) the same bytes will succeed. Everything
+ * else (network failure, timeout, 5xx) is assumed transient too.
  */
+const TRANSIENT_4XX = new Set([401, 403, 408, 429])
 function permanentStatus(err: unknown): number | null {
   const status = httpStatus(err)
   if (status === null) return null
-  return status >= 400 && status < 500 && status !== 408 && status !== 429 ? status : null
+  return status >= 400 && status < 500 && !TRANSIENT_4XX.has(status) ? status : null
 }
 
 /** ApiError kinds that describe weather, not bugs — worth blocking the
