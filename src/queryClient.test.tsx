@@ -47,7 +47,8 @@ describe('app QueryClient offline behavior', () => {
     })
     result.current.mutate('queued note')
 
-    await waitFor(() => expect(mutationFn).toHaveBeenCalledWith('queued note'))
+    await waitFor(() => expect(mutationFn).toHaveBeenCalled())
+    expect(mutationFn.mock.calls[0]?.[0]).toBe('queued note')
   })
 
   it('keeps refetchOnWindowFocus off', () => {
