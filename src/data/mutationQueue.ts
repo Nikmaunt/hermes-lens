@@ -1,5 +1,6 @@
 import type {
   CaptureRequest,
+  CommandRequest,
   FlagRequest,
   FollowupActionRequest,
   HabitTickRequest,
@@ -29,6 +30,7 @@ type QueuedMutationBody =
   | { id: string; kind: 'someday-action'; source: Source; enqueuedAt: string; itemId: string; req: Exclude<SomedayActionRequest, { action: 'undo' }> }
   | { id: string; kind: 'someday-undo'; source: Source; enqueuedAt: string; itemId: string }
   | { id: string; kind: 'notification'; source: Source; enqueuedAt: string; req: NotificationCaptureRequest }
+  | { id: string; kind: 'command'; source: Source; enqueuedAt: string; req: CommandRequest }
 
 export type QueuedMutation = QueuedMutationBody & {
   /** Failed drains due to unclassifiable errors only (see drain); absent
@@ -149,6 +151,10 @@ export function createMutationQueue(kv: KV) {
     // A 200 {status:'duplicate'} resolves normally — the server already has
     // this notification (replay deduped by clientId), which is success here.
     else if (item.kind === 'notification') await ds.captureNotification(item.req)
+    // Same duplicate-is-success contract: the sidecar's command ledger dedups
+    // replays by clientId. Its 429 (20 commands/hour, in-memory window) stays
+    // transient via TRANSIENT_4XX — the command is redelivered next drain.
+    else if (item.kind === 'command') await ds.postCommand(item.req)
     else await ds.ackSync(item.req)
   }
 

@@ -48,6 +48,16 @@ function describeMutation(item: QueuedMutation): string {
     const title = item.req.title.length > 40 ? `${item.req.title.slice(0, 40)}…` : item.req.title
     return `Notification from ${item.req.package}${title === '' ? '' : `: “${title}”`}`
   }
+  if (item.kind === 'command') {
+    if (item.req.type === 'adhoc-digest') {
+      const topic =
+        item.req.payload.topic.length > 60
+          ? `${item.req.payload.topic.slice(0, 60)}…`
+          : item.req.payload.topic
+      return `Command: digest on “${topic}”`
+    }
+    return `Command: note about ${item.req.payload.person}`
+  }
   return `Calendar sync ack (${item.req.lastSeenRevision})`
 }
 

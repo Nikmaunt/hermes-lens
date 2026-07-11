@@ -7,6 +7,10 @@ import {
   ChatJobResponse,
   ChatStartRequest,
   ChatStartResponse,
+  CommandAccepted,
+  CommandRequest,
+  CommandsResponse,
+  CommandStatus,
   DecisionsResponse,
   DocumentsResponse,
   FlagRequest,
@@ -90,6 +94,22 @@ const MOCK_CHAT_THINK_POLLS = 1
 /** Cap on retained Demo jobs so the overlay ledger cannot grow without bound. */
 const MOCK_CHAT_JOB_LIMIT = 20
 
+/**
+ * A Demo command, evolving in place like a chat job: each getCommands read
+ * advances it pending → running → done, so Demo mode exercises the whole
+ * state machine without a runner. Persisted with the overlay.
+ */
+interface MockCommand {
+  commandId: string
+  type: CommandStatus['type']
+  requestedAt: string
+  /** How many times getCommands has listed this command. */
+  reads: number
+}
+
+/** Cap on retained Demo commands so the overlay ledger cannot grow without bound. */
+const MOCK_COMMAND_LIMIT = 20
+
 /** User actions replayed on top of the fixtures so they survive restarts. */
 interface MockOverlay {
   capturedItems: InboxItem[]
@@ -111,9 +131,18 @@ interface MockOverlay {
   chatJobs: Record<string, MockChatJob>
   /** Monotonic counter minting collision-free Demo job/session ids. */
   chatSeq: number
+  /** clientId → response of the first postCommand, for offline-replay dedup. */
+  commandClientIds: Record<string, CommandAccepted>
+  /** Accepted Demo commands, in accepted order. */
+  commands: MockCommand[]
+  /** Monotonic counter minting collision-free Demo command ids. */
+  commandSeq: number
 }
 
-const EMPTY_OVERLAY: MockOverlay = {
+// A factory, not a shared constant: overlay mutations happen in place
+// (push into capturedItems/commands), so a module-level object would leak
+// state between MockDataSource instances.
+const emptyOverlay = (): MockOverlay => ({
   capturedItems: [],
   triagedIds: [],
   flags: {},
@@ -125,8 +154,20 @@ const EMPTY_OVERLAY: MockOverlay = {
   chatClientIds: {},
   chatJobs: {},
   chatSeq: 0,
-}
+  commandClientIds: {},
+  commands: [],
+  commandSeq: 0,
+})
 const OVERLAY_KEY = 'mock:overlay'
+
+/**
+ * Overlay objects shared by every MockDataSource on the same KV: a source
+ * swap (or a test's app re-boot) adopts writes that are still in flight
+ * instead of losing the race against their saveOverlay. Construction still
+ * re-reads the KV and merges it on top, so state seeded directly into
+ * storage wins. Distinct KVs stay fully isolated.
+ */
+const overlaysByKV = new WeakMap<KV, MockOverlay>()
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -140,7 +181,7 @@ function sleep(ms: number): Promise<void> {
 export class MockDataSource implements DataSource {
   readonly kind = 'mock' as const
 
-  private overlay: MockOverlay = EMPTY_OVERLAY
+  private overlay: MockOverlay
   private overlayLoaded: Promise<void>
 
   private status: AgentStatus
@@ -185,6 +226,13 @@ export class MockDataSource implements DataSource {
     this.spentThisMonth = DocumentsResponse.shape.spentThisMonth.parse(
       documentsFixture.spentThisMonth,
     )
+    const shared = overlaysByKV.get(kv)
+    if (shared === undefined) {
+      this.overlay = emptyOverlay()
+      overlaysByKV.set(kv, this.overlay)
+    } else {
+      this.overlay = shared
+    }
     this.overlayLoaded = this.loadOverlay()
   }
 
@@ -192,9 +240,11 @@ export class MockDataSource implements DataSource {
     const raw = await this.kv.get(OVERLAY_KEY)
     if (raw === null) return
     try {
-      this.overlay = { ...EMPTY_OVERLAY, ...(JSON.parse(raw) as MockOverlay) }
+      // Merge in place: the object identity is shared per KV (see
+      // overlaysByKV), so a replacement here would orphan sibling instances.
+      Object.assign(this.overlay, { ...emptyOverlay(), ...(JSON.parse(raw) as MockOverlay) })
     } catch {
-      this.overlay = EMPTY_OVERLAY
+      // Corrupted storage: keep whatever is in memory (usually empty).
     }
   }
 
@@ -382,6 +432,60 @@ export class MockDataSource implements DataSource {
     return { items, generatedAt: this.someday.generatedAt }
   }
 
+  async getCommands(): Promise<CommandsResponse> {
+    await this.ready()
+    // Each read advances every unfinished command one step (pending →
+    // running → done), mirroring how MockChatJob resolves on polls: Demo
+    // mode walks the full state machine without a VPS runner.
+    let advanced = false
+    for (const cmd of this.overlay.commands) {
+      if (cmd.reads < 3) {
+        cmd.reads += 1
+        advanced = true
+      }
+    }
+    // Only a real advance is persisted — an idle list must not write an
+    // early overlay snapshot that races writes still in flight elsewhere.
+    if (advanced) await this.saveOverlay()
+
+    const newestBriefId = [...this.briefs].sort((a, b) =>
+      b.generatedAt.localeCompare(a.generatedAt),
+    )[0]?.id
+    const base = (cmd: MockCommand): Pick<CommandStatus, 'commandId' | 'type' | 'requestedAt'> => ({
+      commandId: cmd.commandId,
+      type: cmd.type,
+      requestedAt: cmd.requestedAt,
+    })
+    // Newest first. Accept order IS chronological here, and requestedAt has
+    // only second precision — sorting by it would shuffle same-second
+    // commands, so reverse the append-ordered ledger instead.
+    const items: CommandStatus[] = [...this.overlay.commands]
+      .reverse()
+      .map((cmd): CommandStatus => {
+        if (cmd.reads === 2) return { ...base(cmd), state: 'running' }
+        if (cmd.reads >= 3) {
+          return cmd.type === 'adhoc-digest'
+            ? {
+                ...base(cmd),
+                state: 'done',
+                summary: 'Digest brief generated',
+                // Point at a real Demo brief so the deep link opens something.
+                ...(newestBriefId === undefined
+                  ? {}
+                  : { result: { kind: 'brief' as const, id: newestBriefId } }),
+              }
+            : {
+                ...base(cmd),
+                state: 'done',
+                summary: 'Note saved to People',
+                result: { kind: 'note' as const, id: cmd.commandId.replace('cmd-', 'note-') },
+              }
+        }
+        return { ...base(cmd), state: 'pending' }
+      })
+    return { items, generatedAt: toIsoDateTime(new Date()) }
+  }
+
   async search(query: string): Promise<SearchResponse> {
     await this.ready()
     const q = query.trim().toLowerCase()
@@ -468,6 +572,38 @@ export class MockDataSource implements DataSource {
     )
 
     return { query, groups }
+  }
+
+  async postCommand(req: CommandRequest): Promise<CommandAccepted> {
+    await this.ready()
+    // Idempotent replay: a clientId we have already accepted answers
+    // 'duplicate' with the original commandId — mirroring the sidecar's
+    // ledger dedup that makes offline-queue replays safe.
+    const previous = this.overlay.commandClientIds[req.clientId]
+    if (previous !== undefined) return { status: 'duplicate', commandId: previous.commandId }
+
+    const seq = this.overlay.commandSeq
+    this.overlay.commandSeq = seq + 1
+    const commandId = `cmd-mock-${seq}`
+    this.overlay.commands.push({
+      commandId,
+      type: req.type,
+      requestedAt: toIsoDateTime(new Date()),
+      reads: 0,
+    })
+    const response: CommandAccepted = { status: 'ok', commandId }
+    this.overlay.commandClientIds[req.clientId] = response
+    this.pruneCommands()
+    await this.saveOverlay()
+    return response
+  }
+
+  /** Keep only the most recently accepted commands in the ledger. */
+  private pruneCommands(): void {
+    if (this.overlay.commands.length <= MOCK_COMMAND_LIMIT) return
+    this.overlay.commands = this.overlay.commands.slice(
+      this.overlay.commands.length - MOCK_COMMAND_LIMIT,
+    )
   }
 
   async capture(req: CaptureRequest): Promise<CaptureResponse> {

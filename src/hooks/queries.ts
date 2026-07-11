@@ -64,6 +64,11 @@ export function useSomeday() {
   return useCachedQuery('someday', () => ds.getSomeday())
 }
 
+export function useCommands() {
+  const { ds } = useData()
+  return useCachedQuery('commands', () => ds.getCommands())
+}
+
 export function useBriefs() {
   const { ds } = useData()
   return useCachedQuery('briefs', () => ds.getBriefs())

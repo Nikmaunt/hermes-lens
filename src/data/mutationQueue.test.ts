@@ -634,6 +634,75 @@ describe('mutation queue', () => {
     expect(await queue.count()).toBe(0)
   })
 
+  const commandItem = (n: number): Extract<QueuedMutation, { kind: 'command' }> => ({
+    id: `c${n}`,
+    kind: 'command',
+    source: 'api',
+    enqueuedAt: new Date().toISOString(),
+    req: {
+      clientId: `client-cmd-${n}-stable`,
+      type: 'adhoc-digest',
+      payload: { topic: `topic ${n}` },
+    },
+  })
+
+  it('replays commands in order and treats a 200 {status:"duplicate"} as success', async () => {
+    // 'duplicate' means the sidecar ledger already has this clientId (a
+    // replay) — the mutation must leave the queue as a success.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(commandItem(1))
+    await queue.enqueue(commandItem(2))
+
+    const seen: unknown[] = []
+    let call = 0
+    const ds = {
+      kind: 'api',
+      postCommand: (req: unknown) => {
+        seen.push(req)
+        call++
+        return Promise.resolve({ status: call === 1 ? 'ok' : 'duplicate', commandId: `cmd-${call}` })
+      },
+    } as unknown as DataSource
+
+    expect(await queue.drain(ds)).toBe(2)
+    expect(await queue.count()).toBe(0)
+    expect(await queue.deadLetters()).toEqual([])
+    expect(seen).toEqual([commandItem(1).req, commandItem(2).req])
+  })
+
+  it('keeps a command queued across 429/408 (transient) and dead-letters other 4xx', async () => {
+    // The sidecar admits 20 commands/hour; a 429 must keep the command for
+    // the next drain (its in-memory window resets on restart too), while a
+    // real rejection (400/413) parks it for the user to decide.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(commandItem(1))
+
+    const rateLimited = {
+      kind: 'api',
+      postCommand: () => Promise.reject(new ApiError('Agent returned 429', 'server', 429)),
+    } as unknown as DataSource
+    expect(await queue.drain(rateLimited)).toBe(0)
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+
+    const timedOut = {
+      kind: 'api',
+      postCommand: () => Promise.reject(new ApiError('Agent returned 408', 'server', 408)),
+    } as unknown as DataSource
+    expect(await queue.drain(timedOut)).toBe(0)
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+
+    const rejecting = {
+      kind: 'api',
+      postCommand: () => Promise.reject(new ApiError('Agent returned 413', 'server', 413)),
+    } as unknown as DataSource
+    expect(await queue.drain(rejecting)).toBe(0)
+    expect(await queue.count()).toBe(0)
+    expect((await queue.deadLetters()).map((d) => d.item.id)).toEqual(['c1'])
+    expect((await queue.deadLetters())[0]?.status).toBe(413)
+  })
+
   it('keeps a notification queued across 429/408 (transient) and dead-letters other 4xx', async () => {
     const queue = createMutationQueue(new MemoryKV())
     await queue.enqueue(notificationItem(1))
