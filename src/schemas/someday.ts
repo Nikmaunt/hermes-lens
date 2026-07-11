@@ -4,11 +4,11 @@ import { Id, IsoDate, IsoDateTime } from './common'
 /*
  * The someday list (deferred follow-ups).
  *
- * Sidecar-first, like chat: the server grows the someday overlay and its
- * action endpoint before any Someday screen ships in the app, so the LIVE
- * prod contract is the source of truth for these shapes — this release adds
- * only the schemas (plus "someday" tolerance in the today/followups enums);
- * the screen and DataSource methods come next release. Evolve additively only.
+ * Sidecar-first, like chat: the server grew the someday overlay and its
+ * action endpoint before the Someday screen shipped, so the LIVE prod
+ * contract is the source of truth for these shapes. The screen and the
+ * DataSource methods are in the app now (Someday screen + the section on
+ * Today). Evolve additively only.
  *
  * Flow mirrors follow-ups: GET /api/someday lists parked items; POST an
  * action to activate one back onto the follow-up list (with a due date),

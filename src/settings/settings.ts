@@ -30,8 +30,9 @@ export const Settings = z.object({
   calendarTargetId: z.string().catch(''),
   /** Blank out counts/deadline in the home-screen widget while app-lock is on. */
   widgetHideDetails: z.boolean().catch(false),
-  /** Mirror allowed apps' notifications into the agent (needs the phone
-   * build's listener service — shipping next release; harmless no-op until then). */
+  /** Mirror allowed apps' notifications into the agent. The phone build's
+   * listener service reads this via the notif:config mirror; in the browser
+   * it is a harmless no-op. */
   notificationCaptureEnabled: z.boolean().catch(false),
   /** Package names whose notifications the native listener may capture. */
   notificationAllowlist: z.array(z.string()).catch([]),

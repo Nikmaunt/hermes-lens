@@ -139,8 +139,8 @@ export function SettingsScreen() {
     try {
       await NotifBridge.openSystemSettings()
     } catch {
-      // Bridge unavailable (browser, or the listener service ships next
-      // release) — the stored config takes effect once it exists.
+      // Bridge unavailable (browser build) — the stored config still takes
+      // effect on the phone, where the listener service reads it.
     }
   }
 
