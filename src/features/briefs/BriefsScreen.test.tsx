@@ -12,6 +12,8 @@ import { createEndpointCache } from '@/data/cache'
 import { MemoryKV } from '@/data/kv'
 import { createMutationQueue } from '@/data/mutationQueue'
 import { SettingsProvider } from '@/settings/SettingsProvider'
+import { preferencesKV } from '@/data/kv'
+import { addDays, formatDay, formatDayMonth, toIsoDate } from '@/lib/dates'
 import type { BriefListItem } from '@/schemas'
 import { BriefsScreen } from './BriefsScreen'
 
@@ -19,6 +21,11 @@ import { BriefsScreen } from './BriefsScreen'
 afterEach(cleanup)
 
 const TEST_TIMEOUT = 20_000
+
+// preferencesKV persists across tests in this file (localStorage-backed);
+// tests that depend on a clean Earlier/pin state reset these keys first.
+const resetEarlierChoice = () => preferencesKV.remove('briefs:earlier-expanded')
+const resetPins = () => preferencesKV.remove('briefs:pinned')
 
 async function bootToToday() {
   // jsdom keeps the URL across tests in a file; a previous test may have
@@ -141,6 +148,12 @@ async function bootToBriefs() {
   )
 }
 
+/** Open the Earlier group if collapsed — its state persists in kv across boots. */
+async function expandEarlier() {
+  const header = screen.getByRole('button', { name: /^earlier ?· \d+$/i })
+  if (header.getAttribute('aria-expanded') === 'false') await userEvent.click(header)
+}
+
 describe('briefs list upgrades', () => {
   it('filters by kind with the All / Morning / Adhoc chips', { timeout: TEST_TIMEOUT }, async () => {
     await bootToBriefs()
@@ -149,6 +162,8 @@ describe('briefs list upgrades', () => {
     await waitFor(() =>
       expect(screen.queryByText('Heads-up: lease cancel window opens soon')).toBeNull(),
     )
+    // History hides in the collapsed Earlier group; open it to see the feed.
+    await expandEarlier()
     expect(screen.getAllByText(/Morning brief/).length).toBeGreaterThanOrEqual(4)
 
     await userEvent.click(screen.getByRole('button', { name: 'Adhoc' }))
@@ -166,6 +181,8 @@ describe('briefs list upgrades', () => {
 
   it('mark all read clears every unread dot in the list', { timeout: TEST_TIMEOUT }, async () => {
     await bootToBriefs()
+    // The unread dots live mostly on history rows — open the Earlier group.
+    await expandEarlier()
     // Scoped to main: the BottomNav briefs dot refreshes on navigation, not
     // live — the list itself must clear immediately.
     const main = screen.getByRole('main')
@@ -177,6 +194,8 @@ describe('briefs list upgrades', () => {
 
   it('pinning lifts a brief into a Pinned section; unpinning returns it', { timeout: TEST_TIMEOUT }, async () => {
     await bootToBriefs()
+    // The brief under test is history — it lives inside the Earlier group.
+    await expandEarlier()
     const title = 'Morning brief — slow week so far'
     const rowOf = () => screen.getByText(title).closest('div') as HTMLElement
 
@@ -192,18 +211,19 @@ describe('briefs list upgrades', () => {
 
 describe('briefs list polish', () => {
   it(
-    'date separators share one flow container, so the Today-style rhythm applies',
+    'history collapses into one Earlier group — no per-day date separators',
     { timeout: TEST_TIMEOUT },
     async () => {
       await bootToBriefs()
       const main = screen.getByRole('main')
-      const headings = within(main).getAllByRole('heading', { level: 2 })
-      expect(headings.length).toBeGreaterThanOrEqual(2)
-      // A header wrapped in a per-group div becomes its :first-child and
-      // loses the mt-6 gap — flat siblings keep the separator off the
-      // previous group's last card.
-      const containers = new Set(headings.map((h) => h.parentElement?.parentElement))
-      expect(containers.size).toBe(1)
+      expect(within(main).getByRole('heading', { name: /^earlier/i })).toBeInTheDocument()
+      // No day header for past dates — the date rides inline in each row.
+      const yesterday = toIsoDate(addDays(new Date(), -1))
+      expect(within(main).queryByText(formatDay(yesterday))).toBeNull()
+      await expandEarlier()
+      expect(
+        within(main).getAllByText(`${formatDayMonth(yesterday)} ·`).length,
+      ).toBeGreaterThanOrEqual(1)
     },
   )
 
@@ -212,6 +232,7 @@ describe('briefs list polish', () => {
     { timeout: TEST_TIMEOUT },
     async () => {
       await bootToBriefs()
+      await expandEarlier()
 
       const pastRow = screen
         .getByRole('button', { name: /Morning brief — gym day, one deadline moved/ })
@@ -259,14 +280,102 @@ function renderBriefsWith(items: BriefListItem[]) {
   )
 }
 
+describe('earlier group', () => {
+  const today = toIsoDate(new Date())
+  const yesterday = toIsoDate(addDays(new Date(), -1))
+  const threeDaysAgo = toIsoDate(addDays(new Date(), -3))
+  const items: BriefListItem[] = [
+    { id: 'b-t', date: today, title: 'Morning brief — fresh', kind: 'morning' },
+    { id: 'b-p1', date: yesterday, title: 'Morning brief — from yesterday', kind: 'morning' },
+    { id: 'b-p2', date: threeDaysAgo, title: 'Morning brief — three days back', kind: 'morning' },
+  ]
+
+  it(
+    'starts collapsed with a count; history stays unmounted, today keeps its card',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await resetEarlierChoice()
+      await resetPins()
+      renderBriefsWith(items)
+
+      const header = await screen.findByRole(
+        'button',
+        { name: /^earlier ?· 2$/i },
+        { timeout: 5000 },
+      )
+      expect(header).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByText('Morning brief — from yesterday')).toBeNull()
+      expect(screen.getByText('Morning brief — fresh')).toBeInTheDocument()
+    },
+  )
+
+  it(
+    'expanding reveals compact rows with the date inline; the choice survives a remount',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await resetEarlierChoice()
+      await resetPins()
+      renderBriefsWith(items)
+
+      await userEvent.click(
+        await screen.findByRole('button', { name: /^earlier ?· 2$/i }, { timeout: 5000 }),
+      )
+      expect(screen.getByText('Morning brief — from yesterday')).toBeInTheDocument()
+      expect(screen.getByText(`${formatDayMonth(yesterday)} ·`)).toBeInTheDocument()
+      expect(screen.getByText(`${formatDayMonth(threeDaysAgo)} ·`)).toBeInTheDocument()
+
+      // kv persistence: a fresh mount starts from the stored choice.
+      cleanup()
+      renderBriefsWith(items)
+      const header = await screen.findByRole(
+        'button',
+        { name: /^earlier ?· 2$/i },
+        { timeout: 5000 },
+      )
+      await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'true'))
+      expect(screen.getByText('Morning brief — from yesterday')).toBeInTheDocument()
+    },
+  )
+
+  it(
+    'a pinned past brief sits above, outside the group, and leaves the count',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await resetEarlierChoice()
+      await preferencesKV.set('briefs:pinned', JSON.stringify(['b-p1']))
+      renderBriefsWith(items)
+
+      await screen.findByText('Pinned', undefined, { timeout: 5000 })
+      // Visible as a full card even while Earlier stays collapsed…
+      expect(screen.getByText('Morning brief — from yesterday')).toBeInTheDocument()
+      // …and excluded from the group's count.
+      expect(screen.getByRole('button', { name: /^earlier ?· 1$/i })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      )
+      await resetPins()
+    },
+  )
+})
+
 describe('adhoc filter visibility', () => {
   it(
     'hides the Adhoc chip while the data has no adhoc briefs; All stays',
     { timeout: TEST_TIMEOUT },
     async () => {
       renderBriefsWith([
-        { id: 'b-m1', date: '2026-07-10', title: 'Morning brief — calm day', kind: 'morning' },
-        { id: 'b-m2', date: '2026-07-09', title: 'Morning brief — errands', kind: 'morning' },
+        {
+          id: 'b-m1',
+          date: toIsoDate(new Date()),
+          title: 'Morning brief — calm day',
+          kind: 'morning',
+        },
+        {
+          id: 'b-m2',
+          date: toIsoDate(addDays(new Date(), -1)),
+          title: 'Morning brief — errands',
+          kind: 'morning',
+        },
       ])
       await screen.findByText('Morning brief — calm day', undefined, { timeout: 5000 })
       expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument()
@@ -280,8 +389,18 @@ describe('adhoc filter visibility', () => {
     { timeout: TEST_TIMEOUT },
     async () => {
       renderBriefsWith([
-        { id: 'b-m1', date: '2026-07-10', title: 'Morning brief — calm day', kind: 'morning' },
-        { id: 'b-a1', date: '2026-07-10', title: 'Heads-up: parcel arriving', kind: 'adhoc' },
+        {
+          id: 'b-m1',
+          date: toIsoDate(new Date()),
+          title: 'Morning brief — calm day',
+          kind: 'morning',
+        },
+        {
+          id: 'b-a1',
+          date: toIsoDate(new Date()),
+          title: 'Heads-up: parcel arriving',
+          kind: 'adhoc',
+        },
       ])
       await screen.findByText('Heads-up: parcel arriving', undefined, { timeout: 5000 })
       expect(screen.getByRole('button', { name: 'Adhoc' })).toBeInTheDocument()

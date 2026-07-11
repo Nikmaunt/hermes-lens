@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { CollapsibleSection } from '@/components/CollapsibleSection'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { Screen } from '@/components/Screen'
 import { FilterChip } from '@/components/FilterChip'
@@ -15,9 +16,10 @@ import { CheckCheckIcon, NewspaperIcon, PinIcon } from '@/components/icons'
 import { useSnackbar } from '@/components/SnackbarProvider'
 import { preferencesKV } from '@/data/kv'
 import { useBriefs } from '@/hooks/queries'
-import { formatDay, toIsoDate } from '@/lib/dates'
+import { formatDay, formatDayMonth, toIsoDate } from '@/lib/dates'
 import type { BriefKind, BriefListItem } from '@/schemas'
 import { UnreadDot } from './UnreadDot'
+import { loadEarlierExpanded, saveEarlierExpanded } from './earlierStore'
 import { loadPinnedBriefIds, toggleBriefPin } from './pinStore'
 import { loadReadBriefIds, markAllBriefsRead } from './readStore'
 
@@ -81,9 +83,9 @@ function BriefRow({
 }
 
 /**
- * History row: past briefs are archive, not news — title only, no kind
- * badge (the feed is almost all morning briefs; the date lives in the
- * group separator right above). Pin and unread state stay tappable.
+ * History row: past briefs are archive, not news — no kind badge (the feed
+ * is almost all morning briefs), the date rides inline in the row instead
+ * of a per-day separator. Pin and unread state stay tappable.
  */
 function CompactBriefRow({
   brief,
@@ -105,6 +107,9 @@ function CompactBriefRow({
         className="active:bg-raised flex min-w-0 flex-1 items-center gap-2 self-stretch py-2.5 pl-1 text-left transition-colors"
       >
         {!read && <UnreadDot />}
+        <span className="tnum shrink-0 text-caption text-faint">
+          {formatDayMonth(brief.date)} ·
+        </span>
         <span className="truncate text-sm leading-snug text-muted">{brief.title}</span>
       </button>
       <button
@@ -131,11 +136,18 @@ export function BriefsScreen() {
   const [readIds, setReadIds] = useState<ReadonlySet<string>>(new Set())
   const [pinnedIds, setPinnedIds] = useState<ReadonlySet<string>>(new Set())
   const [filter, setFilter] = useState<KindFilter>('all')
+  const [earlierExpanded, setEarlierExpanded] = useState(false)
 
   useEffect(() => {
     void loadReadBriefIds(preferencesKV).then(setReadIds)
     void loadPinnedBriefIds(preferencesKV).then(setPinnedIds)
+    void loadEarlierExpanded(preferencesKV).then(setEarlierExpanded)
   }, [])
+  const toggleEarlier = () => {
+    const next = !earlierExpanded
+    setEarlierExpanded(next)
+    void saveEarlierExpanded(preferencesKV, next)
+  }
 
   const items = data?.items ?? []
   // The Adhoc chip earns its place only once an adhoc brief exists; a
@@ -148,13 +160,11 @@ export function BriefsScreen() {
   const pinnedItems = visible.filter((b) => pinnedIds.has(b.id))
   const unpinned = visible.filter((b) => !pinnedIds.has(b.id))
 
-  // Items arrive newest first; group consecutive runs by date.
-  const groups: { date: string; items: BriefListItem[] }[] = []
-  for (const item of unpinned) {
-    const last = groups[groups.length - 1]
-    if (last !== undefined && last.date === item.date) last.items.push(item)
-    else groups.push({ date: item.date, items: [item] })
-  }
+  // Two shelves, both newest first: today's briefs are news and keep the
+  // card; everything older is one Earlier group of compact rows.
+  const todayIso = toIsoDate(new Date())
+  const todayItems = unpinned.filter((b) => b.date === todayIso)
+  const earlierItems = unpinned.filter((b) => b.date !== todayIso)
 
   const open = (brief: BriefListItem) =>
     void navigate(`/briefs/${encodeURIComponent(brief.id)}`)
@@ -236,31 +246,44 @@ export function BriefsScreen() {
             </div>
           </>
         )}
-        {groups.map((group) => {
-          // Today's briefs are news and keep the full card; older ones are
-          // archive and shrink to compact rows.
-          const isToday = group.date === toIsoDate(new Date())
-          return (
-            <Fragment key={group.date}>
-              <SectionHeader>{formatDay(group.date)}</SectionHeader>
-              <div className={isToday ? 'space-y-2' : undefined}>
-                {group.items.map((brief) => {
-                  const Row = isToday ? BriefRow : CompactBriefRow
-                  return (
-                    <Row
-                      key={brief.id}
-                      brief={brief}
-                      read={readIds.has(brief.id)}
-                      pinned={false}
-                      onOpen={() => open(brief)}
-                      onTogglePin={() => togglePin(brief)}
-                    />
-                  )
-                })}
-              </div>
-            </Fragment>
-          )
-        })}
+        {todayItems.length > 0 && (
+          <>
+            <SectionHeader>{formatDay(todayIso)}</SectionHeader>
+            <div className="space-y-2">
+              {todayItems.map((brief) => (
+                <BriefRow
+                  key={brief.id}
+                  brief={brief}
+                  read={readIds.has(brief.id)}
+                  pinned={false}
+                  onOpen={() => open(brief)}
+                  onTogglePin={() => togglePin(brief)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+        {earlierItems.length > 0 && (
+          <CollapsibleSection
+            title="Earlier"
+            count={earlierItems.length}
+            expanded={earlierExpanded}
+            onToggle={toggleEarlier}
+          >
+            <div>
+              {earlierItems.map((brief) => (
+                <CompactBriefRow
+                  key={brief.id}
+                  brief={brief}
+                  read={readIds.has(brief.id)}
+                  pinned={false}
+                  onOpen={() => open(brief)}
+                  onTogglePin={() => togglePin(brief)}
+                />
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
       </PullToRefresh>
     </Screen>
   )
