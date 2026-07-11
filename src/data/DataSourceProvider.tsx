@@ -77,6 +77,10 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         .then((flushed) => {
           if (flushed > 0) void queryClient.invalidateQueries()
         })
+        // queue.drain rejects only on storage failures (send errors are
+        // handled inside): the items stay queued for the next foreground,
+        // and the rejection must never leak unhandled out of the chain.
+        .catch(() => undefined)
     }
     drain()
     if (!Capacitor.isNativePlatform()) return
