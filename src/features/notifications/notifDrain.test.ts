@@ -140,6 +140,44 @@ describe('drainNotificationBuffer', () => {
     expect(await queue.count()).toBe(1)
   })
 
+  it('serializes overlapping drains — two rapid foregrounds must not enqueue duplicates', async () => {
+    // Both drains used to consume the same un-acked buffer entries before
+    // either acked, enqueueing every notification twice (the server dedups
+    // by clientId, but the queue still replayed doubled sends).
+    const queue = createMutationQueue(new MemoryKV())
+    let pending = [buffered(1), buffered(2)]
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let firstConsume = true
+    const bridge = {
+      consumeBuffered: vi.fn(async () => {
+        // Snapshot first, then stall: models the native read finishing while
+        // the transport back to the WebView is still in flight.
+        const items = [...pending]
+        if (firstConsume) {
+          firstConsume = false
+          await gate
+        }
+        return { items }
+      }),
+      ackBuffered: vi.fn(({ upToId }: { upToId: string }) => {
+        const idx = pending.findIndex((item) => item.id === upToId)
+        if (idx !== -1) pending = pending.slice(idx + 1)
+        return Promise.resolve()
+      }),
+    }
+
+    const first = drainNotificationBuffer({ bridge, queue, source: 'api', enabled: true })
+    const second = drainNotificationBuffer({ bridge, queue, source: 'api', enabled: true })
+    release()
+
+    expect(await first).toBe(2)
+    expect(await second).toBe(0) // the buffer was consumed and acked by the first drain
+    expect(await queue.count()).toBe(2) // each notification enqueued exactly once
+  })
+
   it('does not ack an empty buffer', async () => {
     const queue = createMutationQueue(new MemoryKV())
     const bridge = fakeBridge([])

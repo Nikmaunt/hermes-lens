@@ -51,13 +51,31 @@ function toCaptureRequest(item: BufferedNotification): NotificationCaptureReques
  * Plugin failures are swallowed (fail-open): the browser mock and a device
  * without the native service must never surface errors to the user.
  */
-export async function drainNotificationBuffer(opts: {
+export function drainNotificationBuffer(opts: {
   bridge: Pick<NotifBridgePlugin, 'consumeBuffered' | 'ackBuffered'>
   queue: Pick<MutationQueue, 'enqueue'>
   source: 'mock' | 'api'
   /** Settings toggle — when off, the plugin is never even called. */
   enabled: boolean
 }): Promise<number> {
+  // Overlapping drains (two rapid foregrounds, or a foreground racing the
+  // mount drain) would both consume the same un-acked buffer entries before
+  // either acks, enqueueing every notification twice. Serialized, the
+  // second drain sees an already-acked (empty) buffer instead.
+  const run = chain.then(
+    () => drainOnce(opts),
+    () => drainOnce(opts),
+  )
+  chain = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
+
+let chain: Promise<unknown> = Promise.resolve()
+
+async function drainOnce(opts: Parameters<typeof drainNotificationBuffer>[0]): Promise<number> {
   const { bridge, queue, source, enabled } = opts
   if (!enabled) return 0
 
