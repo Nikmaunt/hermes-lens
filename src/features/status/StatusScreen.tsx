@@ -127,7 +127,10 @@ export function StatusScreen() {
                   <div className="tnum text-lg font-medium text-muted">
                     ${data.tokenSpend.monthUsd.toFixed(2)}
                   </div>
-                  <div className="text-caption text-faint">this month</div>
+                  {/* monthUsd sums the sessions the sidecar has — tracking
+                      started mid-month and /api/status carries no start
+                      date, so "this month" would overclaim. */}
+                  <div className="text-caption text-faint">total tracked</div>
                 </div>
               </div>
             </Card>
