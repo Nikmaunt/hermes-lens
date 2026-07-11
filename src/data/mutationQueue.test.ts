@@ -33,7 +33,7 @@ describe('mutation queue', () => {
     expect(await queue.count()).toBe(0)
   })
 
-  it('stops at the first failure and keeps the remainder', async () => {
+  it('stops at the first transient failure and keeps the remainder', async () => {
     const queue = createMutationQueue(new MemoryKV())
     await queue.enqueue(captureItem(1))
     await queue.enqueue(captureItem(2))
@@ -42,13 +42,76 @@ describe('mutation queue', () => {
     let calls = 0
     const ds = fakeDataSource(() => {
       calls++
-      return calls === 2 ? Promise.reject(new Error('offline')) : Promise.resolve({})
+      return calls === 2
+        ? Promise.reject(new ApiError('Agent unreachable', 'network'))
+        : Promise.resolve({})
     })
 
     expect(await queue.drain(ds)).toBe(1)
     expect(await queue.count()).toBe(2)
     const remaining = await queue.peek()
     expect(remaining[0]?.id).toBe('q2')
+  })
+
+  it('dead-letters an invalid-response error and keeps draining the tail', async () => {
+    // kind:'invalid' means the server ACCEPTED the write and only the
+    // response failed schema validation — retrying resends bytes the server
+    // already has, so the item parks instead of blocking everything behind it.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(captureItem(1))
+    await queue.enqueue(captureItem(2))
+
+    let call = 0
+    const ds = fakeDataSource(() => {
+      call++
+      return call === 1
+        ? Promise.reject(new ApiError('Invalid payload from /api/capture', 'invalid'))
+        : Promise.resolve({})
+    })
+
+    expect(await queue.drain(ds)).toBe(1) // q2 flushes past the parked q1
+    expect(await queue.count()).toBe(0)
+    const dead = await queue.deadLetters()
+    expect(dead.map((d) => d.item.id)).toEqual(['q1'])
+    expect(dead[0]?.status).toBeNull()
+  })
+
+  it('lets the tail flow past an unclassifiable error and dead-letters it after the attempt limit', async () => {
+    // A TypeError (or anything without an HTTP status / known transport
+    // kind) is almost certainly a deterministic bug: it must never block the
+    // tail, and after 5 failed drains the item parks as a dead letter.
+    const kv = new MemoryKV()
+    const queue = createMutationQueue(kv)
+    await queue.enqueue(captureItem(1))
+    await queue.enqueue(captureItem(2))
+
+    const ds = fakeDataSource(
+      vi.fn().mockImplementation((req: { text: string }) =>
+        req.text === 'note 1'
+          ? Promise.reject(new TypeError('boom'))
+          : Promise.resolve({}),
+      ) as unknown as () => Promise<unknown>,
+    )
+
+    expect(await queue.drain(ds)).toBe(1) // the tail (q2) is sent immediately
+    expect(await queue.count()).toBe(1)
+    expect(await queue.deadLetters()).toEqual([])
+
+    await queue.drain(ds)
+    await queue.drain(ds)
+
+    // The attempt counter must survive a restart (persisted with the item).
+    const reloaded = createMutationQueue(kv)
+    expect(await reloaded.drain(ds)).toBe(0)
+    expect(await reloaded.count()).toBe(1)
+    expect(await reloaded.deadLetters()).toEqual([])
+
+    expect(await reloaded.drain(ds)).toBe(0) // 5th failed drain
+    expect(await reloaded.count()).toBe(0)
+    const dead = await reloaded.deadLetters()
+    expect(dead.map((d) => d.item.id)).toEqual(['q1'])
+    expect(dead[0]?.status).toBeNull()
+    expect(dead[0]?.reason).toBe('boom')
   })
 
   it('never replays api-bound mutations into the mock source', async () => {

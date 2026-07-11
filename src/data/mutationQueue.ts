@@ -16,7 +16,7 @@ import type { KV } from './kv'
  * swallowed by the mock after a settings switch). */
 type Source = 'mock' | 'api'
 
-export type QueuedMutation =
+type QueuedMutationBody =
   | { id: string; kind: 'capture'; source: Source; enqueuedAt: string; req: CaptureRequest }
   | { id: string; kind: 'triage'; source: Source; enqueuedAt: string; itemId: string; req: TriageRequest }
   | { id: string; kind: 'flag'; source: Source; enqueuedAt: string; itemId: string; req: FlagRequest }
@@ -30,6 +30,12 @@ export type QueuedMutation =
   | { id: string; kind: 'someday-undo'; source: Source; enqueuedAt: string; itemId: string }
   | { id: string; kind: 'notification'; source: Source; enqueuedAt: string; req: NotificationCaptureRequest }
 
+export type QueuedMutation = QueuedMutationBody & {
+  /** Failed drains due to unclassifiable errors only (see drain); absent
+   * until the first such failure. */
+  attempts?: number
+}
+
 /** A mutation the server permanently rejected — parked for the user to decide. */
 export interface DeadLetter {
   item: QueuedMutation
@@ -42,16 +48,39 @@ const KEY = 'mutation-queue'
 const DEAD_KEY = 'mutation-dead-letter'
 
 /**
+ * An unclassifiable error (no HTTP status, not a recognized transport kind —
+ * e.g. a TypeError thrown by a bug) is retried this many drains before the
+ * item is parked as a dead letter: it is almost certainly deterministic and
+ * must not wedge the queue forever.
+ */
+const MAX_UNCLASSIFIED_ATTEMPTS = 5
+
+function httpStatus(err: unknown): number | null {
+  if (typeof err !== 'object' || err === null) return null
+  const status = (err as { status?: unknown }).status
+  return typeof status === 'number' ? status : null
+}
+
+/**
  * A 4xx (except 408 Request Timeout and 429 Too Many Requests) means the
  * server understood the request and said no — retrying the same bytes will
  * never succeed, so the item must not block the queue (F5). Everything else
  * (network failure, timeout, 5xx, 408/429) is assumed transient.
  */
 function permanentStatus(err: unknown): number | null {
-  if (typeof err !== 'object' || err === null) return null
-  const status = (err as { status?: unknown }).status
-  if (typeof status !== 'number') return null
+  const status = httpStatus(err)
+  if (status === null) return null
   return status >= 400 && status < 500 && status !== 408 && status !== 429 ? status : null
+}
+
+/** ApiError kinds that describe weather, not bugs — worth blocking the
+ * queue for, in order, until the network/agent recovers. */
+const TRANSIENT_KINDS = new Set(['timeout', 'network', 'auth', 'server'])
+
+function errorKind(err: unknown): string | null {
+  if (typeof err !== 'object' || err === null) return null
+  const kind = (err as { kind?: unknown }).kind
+  return typeof kind === 'string' ? kind : null
 }
 
 /**
@@ -159,11 +188,15 @@ export function createMutationQueue(kv: KV) {
 
     /**
      * Replay queued mutations that belong to `ds` (same source kind), in
-     * order. A transient failure (offline, 5xx, timeout) stops the replay
-     * and keeps the remainder queued in order; a permanent rejection (other
-     * 4xx) moves that item to the dead-letter list and the drain continues.
-     * Mutations for the other source are always kept untouched. Returns how
-     * many were flushed.
+     * order. A transient failure (offline, 5xx, timeout, auth) stops the
+     * replay and keeps the remainder queued in order; a permanent rejection
+     * (other 4xx, or an invalid-response error — the server accepted the
+     * write, only the reply failed validation) moves that item to the
+     * dead-letter list and the drain continues. An unclassifiable error
+     * (no status, no known kind) never blocks the tail: the item stays in
+     * place with an attempt counter and parks after
+     * MAX_UNCLASSIFIED_ATTEMPTS failed drains. Mutations for the other
+     * source are always kept untouched. Returns how many were flushed.
      */
     drain(ds: DataSource): Promise<number> {
       return serialized(async () => {
@@ -172,6 +205,7 @@ export function createMutationQueue(kv: KV) {
         const dead: DeadLetter[] = []
         let flushed = 0
         let blocked = false
+        let counted = false
         for (const item of items) {
           if (item.source !== ds.kind || blocked) {
             kept.push(item)
@@ -181,21 +215,32 @@ export function createMutationQueue(kv: KV) {
             await send(ds, item)
             flushed++
           } catch (err) {
+            const failedAt = new Date().toISOString()
             const status = permanentStatus(err)
+            const kind = errorKind(err)
+            const reason = err instanceof Error ? err.message : `Rejected with ${status ?? '?'}`
             if (status !== null) {
-              dead.push({
-                item,
-                failedAt: new Date().toISOString(),
-                status,
-                reason: err instanceof Error ? err.message : `Rejected with ${status}`,
-              })
-            } else {
+              dead.push({ item, failedAt, status, reason })
+            } else if (kind === 'invalid') {
+              // The server ACCEPTED this write — only its response failed
+              // schema validation. Retrying resends bytes the server already
+              // has, so this is a permanent outcome, never a queue blocker.
+              dead.push({ item, failedAt, status: null, reason })
+            } else if ((kind !== null && TRANSIENT_KINDS.has(kind)) || httpStatus(err) !== null) {
               blocked = true
               kept.push(item)
+            } else {
+              const attempts = (item.attempts ?? 0) + 1
+              if (attempts >= MAX_UNCLASSIFIED_ATTEMPTS) {
+                dead.push({ item, failedAt, status: null, reason })
+              } else {
+                counted = true
+                kept.push({ ...item, attempts })
+              }
             }
           }
         }
-        if (flushed > 0 || dead.length > 0) await save(kept)
+        if (flushed > 0 || dead.length > 0 || counted) await save(kept)
         if (dead.length > 0) await saveDead([...(await loadDead()), ...dead])
         return flushed
       })
