@@ -605,6 +605,35 @@ describe('mutation queue', () => {
     expect(seen).toEqual([notificationItem(1).req, notificationItem(2).req])
   })
 
+  it('a 429 on a notification skips that kind for the drain but keeps user mutations flowing', async () => {
+    // The sidecar mirror is rate-limited per hour server-side; a 429 there
+    // must not park a user's own capture behind it until the window resets.
+    const queue = createMutationQueue(new MemoryKV())
+    await queue.enqueue(notificationItem(1))
+    await queue.enqueue(captureItem(2))
+    await queue.enqueue(notificationItem(3))
+
+    const captureNotification = vi.fn(() =>
+      Promise.reject(new ApiError('Agent returned 429', 'server', 429)),
+    )
+    const capture = vi.fn(() => Promise.resolve({}))
+    const ds = { kind: 'api', captureNotification, capture } as unknown as DataSource
+
+    expect(await queue.drain(ds)).toBe(1) // the capture behind the 429 is delivered
+    expect(await queue.count()).toBe(2)
+    expect(await queue.deadLetters()).toEqual([])
+    // The second notification is skipped without another doomed request.
+    expect(captureNotification).toHaveBeenCalledTimes(1)
+    expect((await queue.peek()).map((m) => m.id)).toEqual(['n1', 'n3'])
+
+    // Window reset: notifications flow again, still in order.
+    captureNotification.mockImplementation(() =>
+      Promise.resolve({ status: 'ok', itemId: 'it-1' }) as never,
+    )
+    expect(await queue.drain(ds)).toBe(2)
+    expect(await queue.count()).toBe(0)
+  })
+
   it('keeps a notification queued across 429/408 (transient) and dead-letters other 4xx', async () => {
     const queue = createMutationQueue(new MemoryKV())
     await queue.enqueue(notificationItem(1))

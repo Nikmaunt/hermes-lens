@@ -209,8 +209,12 @@ export function createMutationQueue(kv: KV) {
         let flushed = 0
         let blocked = false
         let counted = false
+        // Kinds rate-limited (429) in THIS drain: skipped in place so a
+        // server-side per-hour cap on the notification mirror cannot park
+        // the user's own mutations queued behind it.
+        const rateLimited = new Set<QueuedMutation['kind']>()
         for (const item of items) {
-          if (item.source !== ds.kind || blocked) {
+          if (item.source !== ds.kind || blocked || rateLimited.has(item.kind)) {
             kept.push(item)
             continue
           }
@@ -230,8 +234,13 @@ export function createMutationQueue(kv: KV) {
               // has, so this is a permanent outcome, never a queue blocker.
               dead.push({ item, failedAt, status: null, reason })
             } else if ((kind !== null && TRANSIENT_KINDS.has(kind)) || httpStatus(err) !== null) {
-              blocked = true
-              kept.push(item)
+              if (httpStatus(err) === 429 && item.kind === 'notification') {
+                rateLimited.add(item.kind)
+                kept.push(item)
+              } else {
+                blocked = true
+                kept.push(item)
+              }
             } else {
               const attempts = (item.attempts ?? 0) + 1
               if (attempts >= MAX_UNCLASSIFIED_ATTEMPTS) {
