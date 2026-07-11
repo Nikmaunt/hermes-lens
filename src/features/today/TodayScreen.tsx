@@ -558,11 +558,18 @@ export function TodayScreen() {
                     }}
                     className="active:bg-raised flex min-h-11 w-full items-start gap-3 border-b border-line py-2.5 text-left transition-colors last:border-0"
                   >
-                    <span className="tnum pt-px text-caption text-faint">{formatTime(a.at)}</span>
-                    <span className="flex-1 text-sm leading-snug">{a.summary}</span>
-                    {target !== null && (
-                      <ChevronRightIcon size={13} className="mt-0.5 text-faint" aria-hidden />
-                    )}
+                    <span className="min-w-0 flex-1 text-sm leading-snug">{a.summary}</span>
+                    {/* Timeline's right column: time plus a 13px icon slot.
+                        Rows without a destination keep an empty slot so the
+                        time column and the right edge never shift per row. */}
+                    <span className="flex shrink-0 items-start gap-0.5 pt-px">
+                      <span className="tnum text-caption text-faint">{formatTime(a.at)}</span>
+                      {target !== null ? (
+                        <ChevronRightIcon size={13} className="mt-px text-faint" aria-hidden />
+                      ) : (
+                        <span aria-hidden className="w-[13px]" />
+                      )}
+                    </span>
                   </button>
                 )
               })}

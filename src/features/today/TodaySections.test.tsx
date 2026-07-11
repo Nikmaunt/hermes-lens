@@ -277,6 +277,61 @@ describe('collapsible Today sections', () => {
   )
 
   it(
+    'agent rows share one right column: time plus a 13px slot, chevron or not',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await resetSectionChoices()
+      renderTodayWith({
+        kind: 'mock',
+        getToday: () =>
+          Promise.resolve({
+            ...emptyToday,
+            agentActivity: [
+              // No destination (agent) next to a navigable row (capture):
+              // the two shapes whose geometry used to differ.
+              {
+                id: 'act-1',
+                at: '2026-07-10T07:58:00+02:00',
+                summary: 'Memory distillation run',
+                category: 'agent',
+              },
+              {
+                id: 'act-2',
+                at: '2026-07-10T07:44:00+02:00',
+                summary: 'Captured: bike service reminder',
+                category: 'capture',
+              },
+            ],
+          }),
+        getSomeday: () =>
+          Promise.resolve({ items: [], generatedAt: '2026-07-10T08:00:00+02:00' }),
+      } as unknown as Partial<DataSource>)
+
+      await userEvent.click(
+        await screen.findByRole('button', { name: /^agent, last 24 h$/i }, { timeout: 5000 }),
+      )
+      const agentRow = screen.getByRole('button', { name: /Memory distillation run/ })
+      const navRow = screen.getByRole('button', { name: /Captured: bike service reminder/ })
+
+      // Both rows end in the same two-part right column: time, then a slot.
+      for (const row of [agentRow, navRow]) {
+        const right = row.lastElementChild as HTMLElement
+        expect(right.children).toHaveLength(2)
+        expect(right.children[0]?.className).toContain('tnum')
+      }
+      // Navigable rows fill the slot with the 13px chevron…
+      const chevron = navRow.lastElementChild?.children[1] as HTMLElement
+      expect(chevron.tagName.toLowerCase()).toBe('svg')
+      expect(chevron).toHaveAttribute('width', '13')
+      // …rows without a destination reserve the same 13px so the time
+      // column and the right edge line up across the section.
+      const slot = agentRow.lastElementChild?.children[1] as HTMLElement
+      expect(slot.tagName.toLowerCase()).toBe('span')
+      expect(slot.className).toContain('w-[13px]')
+    },
+  )
+
+  it(
     'someday actions on Today go through ds.somedayAction — the same mutation path',
     { timeout: TEST_TIMEOUT },
     async () => {
