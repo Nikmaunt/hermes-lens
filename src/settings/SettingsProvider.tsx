@@ -21,6 +21,14 @@ interface SettingsContextValue {
   apiToken: string
   /** True until settings + token are loaded from storage (first paint gate). */
   ready: boolean
+  /**
+   * Count of failed settings persists this session, for surfacing (the
+   * snackbar lives inside SnackbarProvider, below this provider — see
+   * SettingsSaveNotifier). A silent failure here is a privacy boundary:
+   * "capture off" that never reached the notif:config mirror means the
+   * native listener keeps capturing while the UI claims otherwise.
+   */
+  saveFailures: number
   update: (patch: Partial<Settings>) => void
   updateApiToken: (token: string) => void
 }
@@ -31,6 +39,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const [apiToken, setApiToken] = useState('')
   const [ready, setReady] = useState(false)
+  const [saveFailures, setSaveFailures] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -51,7 +60,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback((patch: Partial<Settings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch }
-      void saveSettings(preferencesKV, next)
+      void saveSettings(preferencesKV, next).catch((err: unknown) => {
+        console.warn('saveSettings failed — in-memory settings may not persist', err)
+        setSaveFailures((n) => n + 1)
+      })
       return next
     })
   }, [])
@@ -71,8 +83,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.theme])
 
   const value = useMemo(
-    () => ({ settings, apiToken, ready, update, updateApiToken }),
-    [settings, apiToken, ready, update, updateApiToken],
+    () => ({ settings, apiToken, ready, saveFailures, update, updateApiToken }),
+    [settings, apiToken, ready, saveFailures, update, updateApiToken],
   )
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
 }

@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 import { AuthBanner } from './components/AuthBanner'
 import { BottomNav } from './components/BottomNav'
 import { DeadLetterNotifier } from './components/DeadLetterNotifier'
+import { SettingsSaveNotifier } from './components/SettingsSaveNotifier'
 import { SnackbarProvider } from './components/SnackbarProvider'
 import { ListSkeleton } from './components/primitives'
 import { DataSourceProvider } from './data/DataSourceProvider'
@@ -116,6 +117,7 @@ function Root() {
       <LockGate>
         <SnackbarProvider>
           <DeadLetterNotifier />
+          <SettingsSaveNotifier />
           <BrowserRouter>
             <Routes>
               <Route element={<Shell />}>
