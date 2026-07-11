@@ -443,6 +443,85 @@ describe('mock fixtures honor the API contract', () => {
     await expect(fresh.getChatJob('job-nope')).rejects.toThrow()
   })
 
+  it('accepts a command and walks it pending → running → done (mock)', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const accepted = await fresh.postCommand({
+      clientId: 'client-cmd-1',
+      type: 'adhoc-digest',
+      payload: { topic: 'Portland flat market' },
+    })
+    expect(accepted.status).toBe('ok')
+    expect(accepted.commandId.length).toBeGreaterThan(0)
+
+    // Fresh command: still waiting for the runner's next pass.
+    const first = await fresh.getCommands()
+    expect(first.items[0]?.commandId).toBe(accepted.commandId)
+    expect(first.items[0]?.state).toBe('pending')
+
+    // Runner picked it up…
+    const second = await fresh.getCommands()
+    expect(second.items[0]?.state).toBe('running')
+
+    // …and finished: summary + a deep-linkable result appear.
+    const third = await fresh.getCommands()
+    expect(third.items[0]?.state).toBe('done')
+    expect(third.items[0]?.summary).toBeTruthy()
+    expect(third.items[0]?.result?.kind).toBe('brief')
+    const briefs = await fresh.getBriefs()
+    expect(briefs.items.some((b) => b.id === third.items[0]?.result?.id)).toBe(true)
+  })
+
+  it('resolves a create-note command to a note result', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    await fresh.postCommand({
+      clientId: 'client-cmd-note',
+      type: 'create-note',
+      payload: { target: 'people', person: 'Maria', text: 'Owes me a book.' },
+    })
+    await fresh.getCommands()
+    await fresh.getCommands()
+    const done = await fresh.getCommands()
+    expect(done.items[0]?.state).toBe('done')
+    expect(done.items[0]?.result?.kind).toBe('note')
+  })
+
+  it('deduplicates a command replayed with the same clientId', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    const req = {
+      clientId: 'client-cmd-dup',
+      type: 'adhoc-digest',
+      payload: { topic: 'same topic' },
+    } as const
+    const first = await fresh.postCommand(req)
+    expect(first.status).toBe('ok')
+
+    const replay = await fresh.postCommand(req)
+    expect(replay.status).toBe('duplicate')
+    expect(replay.commandId).toBe(first.commandId)
+    expect((await fresh.getCommands()).items.length).toBe(1)
+
+    // A distinct clientId is a genuinely new command.
+    const other = await fresh.postCommand({ ...req, clientId: 'client-cmd-other' })
+    expect(other.status).toBe('ok')
+    expect(other.commandId).not.toBe(first.commandId)
+  })
+
+  it('lists commands newest first', async () => {
+    const fresh = new MockDataSource(new MemoryKV(), 0)
+    await fresh.postCommand({
+      clientId: 'client-cmd-a',
+      type: 'adhoc-digest',
+      payload: { topic: 'first' },
+    })
+    await fresh.postCommand({
+      clientId: 'client-cmd-b',
+      type: 'create-note',
+      payload: { target: 'people', person: 'Maria', text: 'second' },
+    })
+    const list = await fresh.getCommands()
+    expect(list.items.map((i) => i.type)).toEqual(['create-note', 'adhoc-digest'])
+  })
+
   it('search never leaks sensitive memory content', async () => {
     // "refill" appears only inside a sensitive fact (not in any topic) —
     // content of sensitive items must not be searchable at all.

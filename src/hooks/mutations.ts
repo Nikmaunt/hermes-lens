@@ -4,6 +4,7 @@ import { useData } from '@/data/DataSourceProvider'
 import type { QueuedMutation } from '@/data/mutationQueue'
 import type {
   CaptureRequest,
+  CommandRequest,
   FlagAction,
   FollowupActionRequest,
   HabitTickRequest,
@@ -46,6 +47,42 @@ export function useCapture() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [ds.kind, 'inbox'] })
       void queryClient.invalidateQueries({ queryKey: [ds.kind, 'today'] })
+    },
+  })
+}
+
+/** What the user composes; the clientId is minted by the hook. */
+export type CommandDraft =
+  | { type: 'adhoc-digest'; payload: { topic: string } }
+  | {
+      type: 'create-note'
+      payload: { target: 'people'; person: string; title?: string; text: string }
+    }
+
+export function useQueueCommand() {
+  const { ds, queue } = useData()
+  const queryClient = useQueryClient()
+  return useMutation<WriteResult, Error, CommandDraft>({
+    mutationFn: async (input) => {
+      // One clientId per command, minted before the first attempt and kept
+      // through queue replays, so the sidecar ledger can dedup retries.
+      const req: CommandRequest = { clientId: crypto.randomUUID(), ...input }
+      try {
+        await ds.postCommand(req)
+        return { queued: false }
+      } catch {
+        await queue.enqueue({
+          id: crypto.randomUUID(),
+          kind: 'command',
+          source: ds.kind,
+          enqueuedAt: new Date().toISOString(),
+          req,
+        })
+        return { queued: true }
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [ds.kind, 'commands'] })
     },
   })
 }

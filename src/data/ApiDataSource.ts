@@ -6,6 +6,8 @@ import {
   CaptureResponse,
   ChatJobResponse,
   ChatStartResponse,
+  CommandAccepted,
+  CommandsResponse,
   DecisionsResponse,
   DocumentsResponse,
   FlagResponse,
@@ -28,6 +30,7 @@ import {
   UntriageResponse,
   type CaptureRequest,
   type ChatStartRequest,
+  type CommandRequest,
   type FlagRequest,
   type FollowupActionRequest,
   type FollowupUndoRequest,
@@ -190,12 +193,22 @@ export class ApiDataSource implements DataSource {
     return this.request(SomedayResponse, '/api/someday')
   }
 
+  getCommands(): Promise<CommandsResponse> {
+    return this.request(CommandsResponse, '/api/commands')
+  }
+
   search(query: string): Promise<SearchResponse> {
     return this.request(SearchResponse, `/api/search?q=${encodeURIComponent(query)}`)
   }
 
   capture(req: CaptureRequest): Promise<CaptureResponse> {
     return this.request(CaptureResponse, '/api/capture', req)
+  }
+
+  postCommand(req: CommandRequest): Promise<CommandAccepted> {
+    // 201 {status:'ok'} on accept, 200 {status:'duplicate'} on a ledger
+    // replay — both parse as CommandAccepted, both are success.
+    return this.request(CommandAccepted, '/api/commands', req)
   }
 
   triage(itemId: string, req: TriageRequest): Promise<TriageResponse> {

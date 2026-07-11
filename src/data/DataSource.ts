@@ -7,6 +7,9 @@ import type {
   ChatJobResponse,
   ChatStartRequest,
   ChatStartResponse,
+  CommandAccepted,
+  CommandRequest,
+  CommandsResponse,
   DecisionsResponse,
   DocumentsResponse,
   EventCategory,
@@ -64,9 +67,17 @@ export interface DataSource {
   getBriefs(): Promise<BriefsResponse>
   getBrief(id: string): Promise<BriefDetail>
   getSomeday(): Promise<SomedayResponse>
+  // Recent fire-and-forget commands with their queue state; read on demand
+  // (pull-to-refresh), never polled — a command resolves on the runner's
+  // next pass, up to ~30 minutes out.
+  getCommands(): Promise<CommandsResponse>
   search(query: string): Promise<SearchResponse>
 
   capture(req: CaptureRequest): Promise<CaptureResponse>
+  // Enqueue a command for the agent's VPS runner. Fire-and-forget with no
+  // recall; 'duplicate' is success — the sidecar ledger already has this
+  // clientId (an offline-queue replay), no second queue file is written.
+  postCommand(req: CommandRequest): Promise<CommandAccepted>
   triage(itemId: string, req: TriageRequest): Promise<TriageResponse>
   flagMemory(itemId: string, req: FlagRequest): Promise<FlagResponse>
   followupAction(itemId: string, req: FollowupActionRequest): Promise<FollowupActionResponse>
