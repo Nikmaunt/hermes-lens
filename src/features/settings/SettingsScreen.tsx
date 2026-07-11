@@ -347,12 +347,16 @@ export function SettingsScreen() {
             ) : (
               <ul className="mb-2 divide-y divide-line">
                 {settings.notificationAllowlist.map((pkg) => (
-                  <li key={pkg} className="flex items-center justify-between py-2">
-                    <span className="font-mono text-xs">{pkg}</span>
+                  <li key={pkg} className="flex items-center justify-between gap-3 py-2">
+                    {/* min-w-0 + break-all: a long monospace package name
+                        (com.google.android.apps.walletnfcrel) wraps onto a
+                        second line instead of pushing Remove off a 375px
+                        screen. */}
+                    <span className="min-w-0 flex-1 font-mono text-xs break-all">{pkg}</span>
                     <button
                       aria-label={`Remove ${pkg}`}
                       onClick={() => removeAllowlistPackage(pkg)}
-                      className="text-danger rounded-full border border-line px-3 py-1 text-xs font-medium active:bg-raised"
+                      className="text-danger relative shrink-0 rounded-full border border-line px-3 py-1 text-xs font-medium active:bg-raised before:absolute before:inset-x-0 before:top-1/2 before:h-11 before:-translate-y-1/2 before:content-['']"
                     >
                       Remove
                     </button>

@@ -128,4 +128,36 @@ describe('Settings → Notification capture', () => {
       )
     },
   )
+
+  it(
+    'a long package name wraps instead of pushing Remove off a 375px screen',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToSettings()
+
+      await userEvent.click(screen.getByRole('switch', { name: /capture app notifications/i }))
+      await userEvent.click(await screen.findByText('Continue'))
+
+      const longPkg = 'com.google.android.apps.walletnfcrel'
+      const input = await screen.findByPlaceholderText('com.whatsapp')
+      await userEvent.type(input, longPkg)
+      await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+      // jsdom does no layout, so the guarantee is structural: the name column
+      // must be allowed to shrink and wrap (min-w-0 + break-all) while the
+      // Remove button may never be squeezed (shrink-0). Without min-w-0 a
+      // long monospace name keeps the flex row at its intrinsic width and
+      // pushes Remove past the right edge on a 375px phone.
+      const name = await screen.findByText(longPkg)
+      expect(name.className).toContain('min-w-0')
+      expect(name.className).toContain('break-all')
+
+      const remove = screen.getByRole('button', { name: `Remove ${longPkg}` })
+      expect(remove.className).toContain('shrink-0')
+      // Both stay inside the same list row.
+      const row = name.closest('li')
+      expect(row).not.toBeNull()
+      expect(row).toContainElement(remove)
+    },
+  )
 })
