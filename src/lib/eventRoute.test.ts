@@ -61,4 +61,51 @@ describe('timelineEventTarget', () => {
   it('agent events stay non-navigable', () => {
     expect(timelineEventTarget('agent', 'in-5')).toBeNull()
   })
+
+  /*
+   * FRAGILE-prefix pin: the strings below are the verbatim journal titles the
+   * sidecar writes (hermes-lens-sidecar src/writes/queue.ts). If these tests
+   * break, the sidecar retitled its write-acks — update QUEUED_ACK_TARGETS
+   * together with this pin, or better, switch to the event `kind` once Pack 2
+   * ships it.
+   */
+  describe('queued write-acks (title-prefix match)', () => {
+    it('"Inbox triage queued" follows the item into the Inbox', () => {
+      expect(timelineEventTarget('system', 'in-2', 'Inbox triage queued')).toEqual({
+        route: '/inbox',
+        highlightId: 'in-2',
+      })
+      expect(timelineEventTarget('system', null, 'Inbox triage queued')).toEqual({
+        route: '/inbox',
+      })
+    })
+
+    it('"Follow-up action queued" leads to Today, where the pending chip lives', () => {
+      expect(timelineEventTarget('system', 'fu-4', 'Follow-up action queued')).toEqual({
+        route: '/',
+        highlightId: 'fu-4',
+      })
+    })
+
+    it('"Note captured" journal events are capture category and already reach the Inbox', () => {
+      // Sidecar maps journal type "capture" to the capture category
+      // (src/domain/timeline.ts), so no title matching is involved.
+      expect(timelineEventTarget('capture', 'note-slug', 'Note captured')).toEqual({
+        route: '/inbox',
+        highlightId: 'note-slug',
+      })
+    })
+
+    it('matches by prefix, so detail-bearing titles still route', () => {
+      expect(
+        timelineEventTarget('system', null, 'Inbox triage queued (retry)')?.route,
+      ).toBe('/inbox')
+    })
+
+    it('"Notification captured" and other system titles keep the in-place expansion', () => {
+      expect(timelineEventTarget('system', 'rec-1', 'Notification captured')).toBeNull()
+      expect(timelineEventTarget('system', null, 'Someday action queued')).toBeNull()
+      expect(timelineEventTarget('system', null, 'Vault backup completed')).toBeNull()
+    })
+  })
 })

@@ -96,4 +96,37 @@ describe('timeline event details', () => {
       )
     },
   )
+
+  it(
+    'a queued triage ack follows the item into the Inbox instead of expanding',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToTimeline()
+
+      const row = screen.getByRole('button', { name: /Inbox triage queued/ })
+      // Navigational rows carry no expansion affordance.
+      expect(row).not.toHaveAttribute('aria-expanded')
+      await userEvent.click(row)
+      await waitFor(
+        () => expect(screen.getByRole('heading', { name: /Inbox/ })).toBeInTheDocument(),
+        { timeout: 5000 },
+      )
+      expect(screen.queryByRole('heading', { name: /Timeline/ })).toBeNull()
+    },
+  )
+
+  it(
+    'a queued follow-up ack leads to Today, not Status',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      await bootToTimeline()
+
+      await userEvent.click(screen.getByRole('button', { name: /Follow-up action queued/ }))
+      await waitFor(
+        () => expect(screen.getByText('Open follow-ups')).toBeInTheDocument(),
+        { timeout: 5000 },
+      )
+      expect(screen.queryByRole('heading', { name: /Agent Status/ })).toBeNull()
+    },
+  )
 })

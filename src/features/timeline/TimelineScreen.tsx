@@ -106,7 +106,7 @@ export function TimelineScreen() {
             <div>
               {dayEvents.map((event) => {
                 const CategoryIcon = CATEGORY_META[event.category].icon
-                const target = timelineEventTarget(event.category, event.relatedId)
+                const target = timelineEventTarget(event.category, event.relatedId, event.title)
                 const expanded = expandedId === event.id
                 const open = () => {
                   if (target === null) {
