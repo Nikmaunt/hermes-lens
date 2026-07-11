@@ -36,7 +36,6 @@ Error shape (any non-2xx): `{ "error": "<human readable message>" }`.
 | GET | `/api/documents` | contracts/subscriptions with renewals, cancel-by, monthly total | `DocumentsResponse` — [`schemas/documents.ts`](src/schemas/documents.ts) |
 | GET | `/api/decisions?project=` | decision log, optionally filtered by project id | `DecisionsResponse` — [`schemas/decisions.ts`](src/schemas/decisions.ts) |
 | GET | `/api/habits` | habit definitions + completed dates (from agent logs) | `HabitsResponse` — [`schemas/habits.ts`](src/schemas/habits.ts) |
-| GET | `/api/polish-words` | flashcard word list (review state stays on-device) | `PolishWordsResponse` — [`schemas/polish.ts`](src/schemas/polish.ts) |
 | GET | `/api/inbox` | unprocessed notes, oldest first | `InboxResponse` — [`schemas/inbox.ts`](src/schemas/inbox.ts) |
 | GET | `/api/reminders` | dated commitments to mirror into the phone calendar | `RemindersResponse` — [`schemas/reminders.ts`](src/schemas/reminders.ts) |
 | GET | `/api/search?q=` | grouped full-text search across all collections | `SearchResponse` — [`schemas/search.ts`](src/schemas/search.ts) |
@@ -148,7 +147,7 @@ request whose response was lost. Server obligations:
 ## Example responses
 
 Realistic examples for the read collections (status, timeline, memory,
-projects, people, documents, decisions, habits, polish-words, inbox) live in
+projects, people, documents, decisions, habits, inbox) live in
 the mock fixtures: [`src/data/mock/fixtures/`](src/data/mock/fixtures). They
 use relative date tokens (`@d-3` = 3 days ago, `@t-2@09:15` = timestamp 2 days
 ago) that materialize to the ISO formats above — see

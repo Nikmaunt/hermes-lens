@@ -16,7 +16,6 @@ import {
   MemoryResponse,
   NotificationCaptureResponse,
   PeopleResponse,
-  PolishWordsResponse,
   ProjectsResponse,
   RemindersResponse,
   SearchResponse,
@@ -169,10 +168,6 @@ export class ApiDataSource implements DataSource {
 
   getHabits(): Promise<HabitsResponse> {
     return this.request(HabitsResponse, '/api/habits')
-  }
-
-  getPolishWords(): Promise<PolishWordsResponse> {
-    return this.request(PolishWordsResponse, '/api/polish-words')
   }
 
   getInbox(): Promise<InboxResponse> {

@@ -16,7 +16,7 @@ describe('mock fixtures honor the API contract', () => {
   const ds = new MockDataSource(new MemoryKV(), 0)
 
   it('parses all read endpoints', async () => {
-    const [status, today, timeline, memory, projects, people, documents, decisions, habits, words, inbox] =
+    const [status, today, timeline, memory, projects, people, documents, decisions, habits, inbox] =
       await Promise.all([
         ds.getStatus(),
         ds.getToday(),
@@ -27,7 +27,6 @@ describe('mock fixtures honor the API contract', () => {
         ds.getDocuments(),
         ds.getDecisions(),
         ds.getHabits(),
-        ds.getPolishWords(),
         ds.getInbox(),
       ])
 
@@ -42,7 +41,6 @@ describe('mock fixtures honor the API contract', () => {
     expect(documents.monthlyTotal.length).toBeGreaterThan(0)
     expect(decisions.decisions.length).toBeGreaterThanOrEqual(5)
     expect(habits.habits.length).toBeGreaterThanOrEqual(3)
-    expect(words.words.length).toBeGreaterThanOrEqual(50)
     expect(inbox.items.length).toBeGreaterThan(0)
   })
 

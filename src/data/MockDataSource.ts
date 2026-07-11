@@ -25,7 +25,6 @@ import {
   NotificationCaptureRequest,
   NotificationCaptureResponse,
   PeopleResponse,
-  PolishWordsResponse,
   ProjectsResponse,
   RemindersResponse,
   SearchResponse,
@@ -60,7 +59,6 @@ import peopleFixture from './mock/fixtures/people.json'
 import documentsFixture from './mock/fixtures/documents.json'
 import decisionsFixture from './mock/fixtures/decisions.json'
 import habitsFixture from './mock/fixtures/habits.json'
-import polishFixture from './mock/fixtures/polish-words.json'
 import inboxFixture from './mock/fixtures/inbox.json'
 import remindersFixture from './mock/fixtures/reminders.json'
 import briefsFixture from './mock/fixtures/briefs.json'
@@ -154,7 +152,6 @@ export class MockDataSource implements DataSource {
   private documents: DocumentsResponse['items']
   private decisions: DecisionsResponse
   private habits: HabitsResponse
-  private polishWords: PolishWordsResponse
   private inboxItems: InboxItem[]
   private reminders: RemindersResponse
   private briefs: BriefDetail[]
@@ -180,7 +177,6 @@ export class MockDataSource implements DataSource {
     )
     this.decisions = DecisionsResponse.parse(materialize(decisionsFixture, now))
     this.habits = HabitsResponse.parse(materialize(habitsFixture, now))
-    this.polishWords = PolishWordsResponse.parse(materialize(polishFixture, now))
     this.inboxItems = InboxResponse.shape.items.parse(materialize(inboxFixture.items, now))
     this.reminders = RemindersResponse.parse(materialize(remindersFixture, now))
     this.briefs = z.array(BriefDetail).parse(materialize(briefsFixture.briefs, now))
@@ -348,11 +344,6 @@ export class MockDataSource implements DataSource {
       return { ...habit, completedDates: merged }
     })
     return { habits, generatedAt: this.habits.generatedAt }
-  }
-
-  async getPolishWords(): Promise<PolishWordsResponse> {
-    await this.ready()
-    return this.polishWords
   }
 
   async getInbox(): Promise<InboxResponse> {

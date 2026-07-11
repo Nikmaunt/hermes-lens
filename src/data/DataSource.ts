@@ -22,7 +22,6 @@ import type {
   NotificationCaptureRequest,
   NotificationCaptureResponse,
   PeopleResponse,
-  PolishWordsResponse,
   ProjectsResponse,
   RemindersResponse,
   SearchResponse,
@@ -60,7 +59,6 @@ export interface DataSource {
   getDocuments(): Promise<DocumentsResponse>
   getDecisions(projectId?: string): Promise<DecisionsResponse>
   getHabits(): Promise<HabitsResponse>
-  getPolishWords(): Promise<PolishWordsResponse>
   getInbox(): Promise<InboxResponse>
   getReminders(): Promise<RemindersResponse>
   getBriefs(): Promise<BriefsResponse>
