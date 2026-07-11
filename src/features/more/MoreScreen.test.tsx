@@ -59,19 +59,23 @@ describe('the More hub no longer offers Polish words', () => {
 function renderMore(counts: { pendingCount: number; deadLetterCount: number }) {
   const kv = new MemoryKV()
   const value = {
+    // No getCommands on the stub: the Commands section must quietly hide.
     ds: { kind: 'mock' } as DataSource,
     cache: createEndpointCache(kv),
     queue: createMutationQueue(kv),
     ...counts,
   }
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
-    <SettingsProvider>
-      <MemoryRouter>
-        <DataContext.Provider value={value}>
-          <MoreScreen />
-        </DataContext.Provider>
-      </MemoryRouter>
-    </SettingsProvider>,
+    <QueryClientProvider client={queryClient}>
+      <SettingsProvider>
+        <MemoryRouter>
+          <DataContext.Provider value={value}>
+            <MoreScreen />
+          </DataContext.Provider>
+        </MemoryRouter>
+      </SettingsProvider>
+    </QueryClientProvider>,
   )
 }
 
