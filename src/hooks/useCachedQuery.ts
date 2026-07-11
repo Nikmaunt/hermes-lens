@@ -104,6 +104,8 @@ export function useCachedQuery<T>(key: string, fetcher: () => Promise<T>) {
 
   return {
     data: query.data?.data,
+    /** When the shown payload was last successfully fetched; null while loading. */
+    fetchedAt: query.data?.fetchedAt ?? null,
     /** Non-null when cached data is shown and the source is failing. */
     staleSince: query.data !== undefined && errorKind !== null ? query.data.fetchedAt : null,
     errorKind,

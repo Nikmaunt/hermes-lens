@@ -38,6 +38,7 @@ import {
   type SectionChoices,
   type TodaySectionId,
 } from './sectionStore'
+import { backupFragment, nextTriageFragment, syncedFragment } from './pulseLine'
 import { useSettings } from '@/settings/SettingsProvider'
 import { formatDate, formatDay, formatTime } from '@/lib/dates'
 import { snoozeNextMonday, snoozeTomorrow } from '@/lib/snooze'
@@ -62,7 +63,7 @@ const urgencyTone: Record<FollowUp['urgency'], DueTone> = {
 const UNDO_WINDOW_MS = 5000
 
 export function TodayScreen() {
-  const { data, staleSince, errorKind, isLoading, error, refetch } = useToday()
+  const { data, staleSince, errorKind, isLoading, error, refetch, fetchedAt } = useToday()
   const somedayItems = useSomeday().data?.items
   const { settings } = useSettings()
   const navigate = useNavigate()
@@ -209,11 +210,14 @@ export function TodayScreen() {
   // Keep the home-screen widget in sync with what the user sees: same
   // payload, same pending/gone exclusions, plus the health line from the
   // last cached /api/status (the widget itself never hits the network).
+  // The same cached status feeds the pulse line — one read, no new request.
+  const [cachedStatus, setCachedStatus] = useState<AgentStatus | null>(null)
   useEffect(() => {
     if (data === undefined) return
     let alive = true
     void cache.read<AgentStatus>(`${ds.kind}:status`).then((cached) => {
       if (!alive) return
+      setCachedStatus(cached?.payload ?? null)
       const pendingIds = new Set<string>([
         ...queuedActions.map((m) => m.itemId),
         ...localActions.keys(),
@@ -238,6 +242,8 @@ export function TodayScreen() {
 
   // Gone cards drop from the list AND the header count — they must agree.
   const visibleFollowUps = data?.followUps.filter((fu) => !goneIds.has(fu.id)) ?? []
+
+  const backup = backupFragment(cachedStatus)
 
   return (
     <Screen title={data !== undefined ? formatDay(data.date) : 'Today'}>
@@ -550,6 +556,24 @@ export function TodayScreen() {
               })}
             </div>
             </CollapsibleSection>
+
+            {/* System pulse: nothing interactive, widget-footer quiet. All
+                three fragments come from data already on hand — the today
+                query's cache meta, the widget effect's status read and the
+                triage cron mirror — never a new request. */}
+            {fetchedAt !== null && (
+              <p className="mt-6 px-1 text-center text-caption text-faint">
+                {syncedFragment(fetchedAt)}
+                {backup !== null && (
+                  <>
+                    {' · '}
+                    <span className={backup.warn ? 'text-warn' : undefined}>{backup.label}</span>
+                  </>
+                )}
+                {' · '}
+                {nextTriageFragment()}
+              </p>
+            )}
           </>
         )}
       </PullToRefresh>
