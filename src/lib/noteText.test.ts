@@ -68,4 +68,48 @@ describe('parseNoteText', () => {
     const clean = 'Sauna with Theo’s group — confirm by Wednesday'
     expect(plainNoteText(clean)).toBe(clean)
   })
+
+  it('turns [label](https://…) markdown links into label segments with the href', () => {
+    expect(parseNoteText('see [the doc](https://example.com/x?y=1) today')[0]?.segments).toEqual([
+      { text: 'see ', wikilink: false },
+      { text: 'the doc', wikilink: false, href: 'https://example.com/x?y=1' },
+      { text: ' today', wikilink: false },
+    ])
+  })
+
+  it('passes markdown links with non-http schemes through as plain text', () => {
+    const js = 'click [here](javascript:alert(1)) now'
+    expect(plainNoteText(js)).toBe(js)
+    expect(parseNoteText(js).flatMap((l) => l.segments).some((s) => s.href !== undefined)).toBe(
+      false,
+    )
+    const data = 'open [this](data:text/html,hi) later'
+    expect(plainNoteText(data)).toBe(data)
+    expect(parseNoteText(data).flatMap((l) => l.segments).some((s) => s.href !== undefined)).toBe(
+      false,
+    )
+  })
+
+  it('compresses bare URLs to their clickable domain', () => {
+    expect(
+      parseNoteText('read https://news.example.com/articles/2026/07/long-slug?utm=1 tonight')[0]
+        ?.segments,
+    ).toEqual([
+      { text: 'read ', wikilink: false },
+      {
+        text: 'news.example.com',
+        wikilink: false,
+        href: 'https://news.example.com/articles/2026/07/long-slug?utm=1',
+      },
+      { text: ' tonight', wikilink: false },
+    ])
+  })
+
+  it('keeps sentence punctuation after a bare URL out of the link', () => {
+    expect(parseNoteText('details at https://example.com/page.')[0]?.segments).toEqual([
+      { text: 'details at ', wikilink: false },
+      { text: 'example.com', wikilink: false, href: 'https://example.com/page' },
+      { text: '.', wikilink: false },
+    ])
+  })
 })
