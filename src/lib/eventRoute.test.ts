@@ -108,4 +108,65 @@ describe('timelineEventTarget', () => {
       expect(timelineEventTarget('system', null, 'Vault backup completed')).toBeNull()
     })
   })
+
+  describe('kind-based routing (newer sidecar)', () => {
+    it('routes every known kind per the kind table', () => {
+      expect(timelineEventTarget('system', 'in-2', null, 'triage-queued')).toEqual({
+        route: '/inbox',
+        highlightId: 'in-2',
+      })
+      expect(timelineEventTarget('system', 'fu-4', null, 'followup-queued')).toEqual({
+        route: '/',
+        highlightId: 'fu-4',
+      })
+      expect(timelineEventTarget('capture', 'note-1', null, 'capture')).toEqual({
+        route: '/inbox',
+        highlightId: 'note-1',
+      })
+      expect(timelineEventTarget('system', 'habit-gym', null, 'habit-queued')).toEqual({
+        route: '/habits',
+        highlightId: 'habit-gym',
+      })
+      expect(timelineEventTarget('system', 'mem-3', null, 'memory-flag')).toEqual({
+        route: '/memory',
+        highlightId: 'mem-3',
+      })
+      // Notification journal records have no screen behind them: in place.
+      expect(timelineEventTarget('system', 'rec-1', null, 'notification')).toBeNull()
+      // Infra events lead to live agent state; nothing to flash there.
+      expect(timelineEventTarget('system', 'bk-9', null, 'backup')).toEqual({ route: '/status' })
+      expect(timelineEventTarget('system', null, null, 'cron')).toEqual({ route: '/status' })
+    })
+
+    it('kind wins over the FRAGILE title prefix', () => {
+      // Title says triage ack, kind says notification: kind decides (inline).
+      expect(
+        timelineEventTarget('system', 'rec-1', 'Inbox triage queued', 'notification'),
+      ).toBeNull()
+      // Title unrecognizable after a sidecar retitle, kind still routes.
+      expect(
+        timelineEventTarget('system', 'in-2', 'Triage accepted (new title)', 'triage-queued'),
+      ).toEqual({ route: '/inbox', highlightId: 'in-2' })
+    })
+
+    it('an unknown kind expands in place — the safe default', () => {
+      expect(timelineEventTarget('system', 'x-1', 'Whatever', 'sync-ack')).toBeNull()
+      // Even on an entity category: kind present means kind decides.
+      expect(timelineEventTarget('memory', 'mem-1', 'Memory learned', 'memory-learned')).toBeNull()
+    })
+
+    it('events without kind keep the legacy title-prefix fallback', () => {
+      expect(timelineEventTarget('system', 'in-2', 'Inbox triage queued', null)).toEqual({
+        route: '/inbox',
+        highlightId: 'in-2',
+      })
+      expect(timelineEventTarget('system', 'rec-1', 'Notification captured', null)).toBeNull()
+    })
+
+    it('omits the highlight hint when a kind-routed event has no related entity', () => {
+      expect(timelineEventTarget('system', null, null, 'triage-queued')).toEqual({
+        route: '/inbox',
+      })
+    })
+  })
 })

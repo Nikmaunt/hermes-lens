@@ -17,6 +17,11 @@ import { Id, IsoDate, IsoDateTime } from './common'
 
 /** An activate/close request queued for the agent (not yet executed). */
 export const SomedayPendingAction = z.object({
+  /**
+   * CLOSED enum: echoes back actions the client itself queued; new actions
+   * deploy client-first (enum-first-in-app), so the app always knows every
+   * value the server can legally send here.
+   */
   action: z.enum(['activate', 'close']),
   /** Present when action is "activate": the due date the item returns with. */
   date: IsoDate.optional(),
@@ -58,6 +63,8 @@ export const SomedayActionResponse = z.object({
    * "ok" = queued for the agent; "gone" = the item no longer exists
    * server-side (offline replay after the agent resolved it) — the client
    * treats it as success and drops the mutation.
+   * CLOSED enum: protocol status the offline queue branches on — an unknown
+   * value must fail loudly, not silently pick a branch.
    */
   status: z.enum(['ok', 'gone']),
   itemId: Id,
