@@ -57,6 +57,9 @@ Error shape (any non-2xx): `{ "error": "<human readable message>" }`.
 | POST | `/api/habits/{id}/tick` | queue a habit tick for a date, or undo the pending one | `HabitTickResponse` — [`schemas/habits.ts`](src/schemas/habits.ts) |
 | POST | `/api/sync/ack` | phone confirms it applied a reminders revision | `SyncAckResponse` — [`schemas/sync.ts`](src/schemas/sync.ts) |
 
+The sidecar additionally serves `GET /api/polish-words` for a different
+consumer; it is outside this contract and the Lens app never calls it.
+
 ## Deploy order (contract evolution)
 
 The app and the sidecar never deploy atomically, so every change follows one

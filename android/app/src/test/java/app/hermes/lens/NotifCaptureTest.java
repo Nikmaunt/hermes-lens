@@ -162,7 +162,7 @@ public class NotifCaptureTest {
     @Test
     public void emojiSurrogatePairsAreNeverSplit() {
         // "a" + 950 × 😀 (4 bytes each) = 3801 bytes: the last emoji does not
-        // fit and must be dropped WHOLE — 3799 bytes kept, not a lone
+        // fit and must be dropped WHOLE — 3797 bytes kept, not a lone
         // surrogate squeezed into the last byte.
         String[] bodies = NotifCapture.trimBodies("a" + repeatString("😀", 950), null);
         assertEquals(1 + 949 * 2, bodies[0].length());
