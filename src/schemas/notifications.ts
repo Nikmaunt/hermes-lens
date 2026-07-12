@@ -6,6 +6,10 @@ import { z } from 'zod'
  * The two declarations below are a VERBATIM copy shared with the sidecar,
  * which keeps an identical mirror of this schema — any change must land in
  * both places or replays will be rejected.
+ *
+ * Enum decision (kept out of the verbatim block): status (ok|duplicate) is a
+ * CLOSED protocol enum — the offline queue branches on it, so an unknown
+ * value must fail loudly, not silently pick a branch.
  */
 
 export const NotificationCaptureRequest = z.object({

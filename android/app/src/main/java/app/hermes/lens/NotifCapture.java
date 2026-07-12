@@ -17,8 +17,13 @@ final class NotifCapture {
 
     /** Max stored title length (characters). */
     static final int TITLE_MAX = 200;
-    /** Max stored text + bigText length, combined (characters). */
-    static final int BODY_MAX = 2000;
+    /**
+     * Max stored text + bigText size, combined, in UTF-8 BYTES. The sidecar
+     * caps a stored capture at 4 KiB of UTF-8; 3800 leaves headroom for the
+     * frontmatter it adds. A character cap would drift from that byte cap by
+     * up to 4× on emoji/CJK content.
+     */
+    static final int BODY_MAX_BYTES = 3800;
     /** Ring buffer capacity: overflow evicts the oldest entries. */
     static final int RING_MAX = 200;
 
@@ -56,26 +61,70 @@ final class NotifCapture {
     }
 
     /**
-     * text + bigText share the {@link #BODY_MAX} budget: text first, bigText
-     * gets the remainder. Returns {text, bigTextOrNull}; a bigText trimmed to
-     * nothing comes back null so the JSON entry omits the field.
+     * text + bigText share the {@link #BODY_MAX_BYTES} budget: text first,
+     * bigText gets the remainder. The budget is UTF-8 bytes (matching the
+     * sidecar's byte cap), and cuts land on code point boundaries — a
+     * surrogate pair is kept or dropped whole, never split into lone halves.
+     * Returns {text, bigTextOrNull}; a bigText trimmed to nothing comes back
+     * null so the JSON entry omits the field.
      */
     static String[] trimBodies(String text, String bigText) {
-        String t = safe(text);
-        if (t.length() > BODY_MAX) {
-            t = t.substring(0, BODY_MAX);
-        }
+        String t = trimUtf8(safe(text), BODY_MAX_BYTES);
         String b = bigText;
         if (b != null) {
-            int remaining = BODY_MAX - t.length();
-            if (b.length() > remaining) {
-                b = b.substring(0, remaining);
-            }
+            b = trimUtf8(b, BODY_MAX_BYTES - utf8Length(t));
             if (b.isEmpty()) {
                 b = null;
             }
         }
         return new String[] { t, b };
+    }
+
+    /**
+     * Longest prefix of {@code s} that fits {@code maxBytes} of UTF-8. Walks
+     * code points, so a supplementary character (emoji — a surrogate pair in
+     * UTF-16) that does not fully fit is dropped whole; the result never ends
+     * in a lone surrogate.
+     */
+    static String trimUtf8(String s, int maxBytes) {
+        int bytes = 0;
+        int i = 0;
+        while (i < s.length()) {
+            int cp = s.codePointAt(i);
+            int cpBytes = utf8Bytes(cp);
+            if (bytes + cpBytes > maxBytes) {
+                break;
+            }
+            bytes += cpBytes;
+            i += Character.charCount(cp);
+        }
+        return i == s.length() ? s : s.substring(0, i);
+    }
+
+    /** UTF-8 byte length of {@code s} (code point walk, no encoding pass). */
+    static int utf8Length(String s) {
+        int bytes = 0;
+        int i = 0;
+        while (i < s.length()) {
+            int cp = s.codePointAt(i);
+            bytes += utf8Bytes(cp);
+            i += Character.charCount(cp);
+        }
+        return bytes;
+    }
+
+    /** UTF-8 byte size of one code point (1 for ASCII … 4 for emoji). */
+    private static int utf8Bytes(int cp) {
+        if (cp < 0x80) {
+            return 1;
+        }
+        if (cp < 0x800) {
+            return 2;
+        }
+        if (cp < 0x10000) {
+            return 3;
+        }
+        return 4;
     }
 
     /**

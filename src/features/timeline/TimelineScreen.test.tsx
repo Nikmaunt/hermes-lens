@@ -2,8 +2,18 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it } from 'vitest'
 import { App } from '@/App'
+import { SnackbarProvider } from '@/components/SnackbarProvider'
+import type { DataSource } from '@/data/DataSource'
+import { DataContext } from '@/data/DataSourceProvider'
+import { createEndpointCache } from '@/data/cache'
+import { MemoryKV } from '@/data/kv'
+import { createMutationQueue } from '@/data/mutationQueue'
+import { SettingsProvider } from '@/settings/SettingsProvider'
+import { TimelineResponse } from '@/schemas'
+import { TimelineScreen } from './TimelineScreen'
 
 // Vitest runs without injected globals, so RTL's auto-cleanup never registers.
 afterEach(cleanup)
@@ -127,6 +137,97 @@ describe('timeline event details', () => {
         { timeout: 5000 },
       )
       expect(screen.queryByRole('heading', { name: /Agent Status/ })).toBeNull()
+    },
+  )
+})
+
+/** TimelineScreen with an injected data source, for payloads a newer sidecar sends. */
+function renderTimelineWith(rawResponse: unknown) {
+  const kv = new MemoryKV()
+  const ds = {
+    kind: 'mock',
+    // Parse the raw payload exactly like ApiDataSource would — the test
+    // covers the schema tolerance and the screen in one pass.
+    getTimeline: async () => TimelineResponse.parse(rawResponse),
+  } as unknown as DataSource
+  const value = {
+    ds,
+    cache: createEndpointCache(kv),
+    queue: createMutationQueue(kv),
+    pendingCount: 0,
+    deadLetterCount: 0,
+  }
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <SettingsProvider>
+        <DataContext.Provider value={value}>
+          <SnackbarProvider>
+            <MemoryRouter initialEntries={['/timeline']}>
+              <TimelineScreen />
+            </MemoryRouter>
+          </SnackbarProvider>
+        </DataContext.Provider>
+      </SettingsProvider>
+    </QueryClientProvider>,
+  )
+}
+
+describe('contract evolution: a newer sidecar', () => {
+  it(
+    'an unknown category renders as a live system row instead of killing the screen',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      renderTimelineWith({
+        events: [
+          {
+            id: 'ev-exotic',
+            at: '2026-07-11T09:00:00+02:00',
+            category: 'finance', // this app version has never heard of it
+            title: 'Ledger reconciled',
+            detail: null,
+            relatedId: null,
+          },
+        ],
+        nextBefore: null,
+      })
+
+      // The screen is alive and the event is on it.
+      const row = await screen.findByRole('button', { name: /Ledger reconciled/ }, { timeout: 5000 })
+      expect(screen.getByRole('heading', { name: /Timeline/ })).toBeInTheDocument()
+
+      // It behaves as a system event: expands in place, typed System.
+      await userEvent.click(row)
+      expect(row).toHaveAttribute('aria-expanded', 'true')
+      expect(within(row).getByText('System')).toBeInTheDocument()
+    },
+  )
+
+  it(
+    'an unknown kind on a known category expands in place — the safe default',
+    { timeout: TEST_TIMEOUT },
+    async () => {
+      renderTimelineWith({
+        events: [
+          {
+            id: 'ev-kind',
+            at: '2026-07-11T10:00:00+02:00',
+            category: 'memory',
+            title: 'Memory consolidated',
+            detail: null,
+            relatedId: 'mem-1',
+            kind: 'memory-consolidated', // not in the kind table
+          },
+        ],
+        nextBefore: null,
+      })
+
+      const row = await screen.findByRole('button', { name: /Memory consolidated/ }, { timeout: 5000 })
+      await userEvent.click(row)
+      // No navigation happened (the Timeline heading is still there) and the
+      // row unfolded instead.
+      expect(row).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByRole('heading', { name: /Timeline/ })).toBeInTheDocument()
     },
   )
 })

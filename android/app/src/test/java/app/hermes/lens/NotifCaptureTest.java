@@ -112,16 +112,17 @@ public class NotifCaptureTest {
     }
 
     @Test
-    public void textAndBigTextShareThe2000Budget() {
-        String[] bodies = NotifCapture.trimBodies(repeat('a', 1500), repeat('b', 1500));
-        assertEquals(1500, bodies[0].length());
-        assertEquals(500, bodies[1].length());
+    public void textAndBigTextShareTheByteBudget() {
+        // 3000 + 1500 ASCII bytes > 3800: bigText gets the 800-byte remainder.
+        String[] bodies = NotifCapture.trimBodies(repeat('a', 3000), repeat('b', 1500));
+        assertEquals(3000, bodies[0].length());
+        assertEquals(800, bodies[1].length());
     }
 
     @Test
     public void oversizedTextConsumesTheWholeBudget() {
-        String[] bodies = NotifCapture.trimBodies(repeat('a', 2500), repeat('b', 10));
-        assertEquals(2000, bodies[0].length());
+        String[] bodies = NotifCapture.trimBodies(repeat('a', 4000), repeat('b', 10));
+        assertEquals(3800, bodies[0].length());
         // bigText trimmed to nothing → null, so the JSON field is omitted.
         assertNull(bodies[1]);
     }
@@ -136,6 +137,65 @@ public class NotifCaptureTest {
     @Test
     public void nullTextBecomesEmptyString() {
         assertEquals("", NotifCapture.trimBodies(null, null)[0]);
+    }
+
+    // ------------------------------------------------- byte-accurate trimming
+
+    @Test
+    public void cyrillicIsTrimmedByBytesNotChars() {
+        // 2500 Cyrillic chars = 5000 UTF-8 bytes. A char cap would keep far
+        // too much; the byte cap keeps exactly 3800 / 2 = 1900 chars.
+        String[] bodies = NotifCapture.trimBodies(repeat('ж', 2500), null);
+        assertEquals(1900, bodies[0].length());
+        assertEquals(3800, NotifCapture.utf8Length(bodies[0]));
+    }
+
+    @Test
+    public void cjkIsTrimmedAtCodePointBoundary() {
+        // 1300 CJK chars = 3900 bytes; 1266 chars = 3798 bytes is the largest
+        // prefix under the cap (one more char would hit 3801).
+        String[] bodies = NotifCapture.trimBodies(repeatString("漢", 1300), null);
+        assertEquals(1266, bodies[0].length());
+        assertEquals(3798, NotifCapture.utf8Length(bodies[0]));
+    }
+
+    @Test
+    public void emojiSurrogatePairsAreNeverSplit() {
+        // "a" + 950 × 😀 (4 bytes each) = 3801 bytes: the last emoji does not
+        // fit and must be dropped WHOLE — 3797 bytes kept, not a lone
+        // surrogate squeezed into the last byte.
+        String[] bodies = NotifCapture.trimBodies("a" + repeatString("😀", 950), null);
+        assertEquals(1 + 949 * 2, bodies[0].length());
+        assertEquals(1 + 949 * 4, NotifCapture.utf8Length(bodies[0]));
+        // Well-formed UTF-16: encoding to UTF-8 and back loses nothing.
+        assertEquals(bodies[0], new String(
+                bodies[0].getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void pairOnTheExactBoundaryIsKept() {
+        assertEquals("😀", NotifCapture.trimUtf8("😀", 4));
+        assertEquals("", NotifCapture.trimUtf8("😀", 3));
+        // 3 bytes left after "a": the 4-byte pair is dropped whole.
+        assertEquals("a", NotifCapture.trimUtf8("a😀", 4));
+        assertEquals("a😀", NotifCapture.trimUtf8("a😀", 5));
+    }
+
+    @Test
+    public void bigTextRemainderIsAlsoByteMeasured() {
+        // Text eats 3000 bytes; the 800-byte remainder fits 400 Cyrillic
+        // chars, cut on a code point boundary.
+        String[] bodies = NotifCapture.trimBodies(repeat('a', 3000), repeat('ю', 600));
+        assertEquals(400, bodies[1].length());
+        assertEquals(800, NotifCapture.utf8Length(bodies[1]));
+    }
+
+    @Test
+    public void bodiesWithinBudgetPassThroughUntouched() {
+        String[] bodies = NotifCapture.trimBodies("Привет 😀", "漢字テスト");
+        assertEquals("Привет 😀", bodies[0]);
+        assertEquals("漢字テスト", bodies[1]);
     }
 
     // ------------------------------------------------------------- entry id
@@ -188,6 +248,14 @@ public class NotifCaptureTest {
         StringBuilder sb = new StringBuilder(n);
         for (int i = 0; i < n; i++) {
             sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    private static String repeatString(String s, int n) {
+        StringBuilder sb = new StringBuilder(s.length() * n);
+        for (int i = 0; i < n; i++) {
+            sb.append(s);
         }
         return sb.toString();
     }

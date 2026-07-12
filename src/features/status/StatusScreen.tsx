@@ -128,9 +128,14 @@ export function StatusScreen() {
                     ${data.tokenSpend.monthUsd.toFixed(2)}
                   </div>
                   {/* monthUsd sums the sessions the sidecar has — tracking
-                      started mid-month and /api/status carries no start
-                      date, so "this month" would overclaim. */}
-                  <div className="text-caption text-faint">total tracked</div>
+                      started mid-month, so "this month" would overclaim.
+                      A newer sidecar reports the start date in `since`; an
+                      older one omits it and the caption stays vague. */}
+                  <div className="text-caption text-faint">
+                    {data.tokenSpend.since !== undefined
+                      ? `since ${data.tokenSpend.since}`
+                      : 'total tracked'}
+                  </div>
                 </div>
               </div>
             </Card>

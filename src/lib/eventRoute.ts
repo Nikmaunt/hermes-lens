@@ -48,12 +48,35 @@ export function eventTarget(
 }
 
 /**
- * FRAGILE: queued write-acks are journal records whose only machine-readable
- * shape is the verbatim title the sidecar writes (hermes-lens-sidecar
- * src/writes/queue.ts). Until the contract grows an event `kind` (planned for
- * Pack 2), they are recognized by title prefix — a sidecar retitle silently
- * demotes these rows back to in-place expansion. eventRoute.test.ts pins the
- * exact prefixes against the sidecar's current titles.
+ * Machine-readable event kinds and where they lead. `null` = the row expands
+ * in place (no detail screen behind it). Kinds the table does not know also
+ * expand in place — the safe default for whatever a newer sidecar invents.
+ *
+ * Keys are free strings by contract (TimelineEvent.kind is NOT an enum): the
+ * server adds kinds ahead of the app, the app routes the ones it understands.
+ */
+const KIND_TARGETS: Record<string, string | null> = {
+  // Journal records with no screen of their own: expand in place.
+  notification: null,
+  // The captured note lands in the inbox deck.
+  capture: '/inbox',
+  // Queued write-acks follow the item to where its pending state shows.
+  'triage-queued': '/inbox',
+  'followup-queued': '/',
+  'habit-queued': '/habits',
+  'memory-flag': '/memory',
+  // Infra events: live agent state is on the Status screen.
+  backup: '/status',
+  cron: '/status',
+}
+
+/**
+ * FRAGILE (legacy fallback): on events without `kind` — an older sidecar —
+ * queued write-acks are recognized by the verbatim journal title the sidecar
+ * writes (hermes-lens-sidecar src/writes/queue.ts). A sidecar retitle
+ * silently demotes these rows back to in-place expansion; kind-bearing
+ * events never hit this path. eventRoute.test.ts pins the exact prefixes
+ * against the sidecar's current titles.
  */
 const QUEUED_ACK_TARGETS: readonly { prefix: string; route: string }[] = [
   // The triaged item came from the inbox deck; that deck floats the
@@ -64,19 +87,35 @@ const QUEUED_ACK_TARGETS: readonly { prefix: string; route: string }[] = [
 ]
 
 /**
- * Tap target for Timeline rows specifically. System events differ from the
- * shared map: on the Timeline they are mostly journal records (notification
- * captures, sync acks) and /status shows live agent state, not the tapped
- * event — a blind jump. Those rows expand in place instead, like agent rows.
- * The exception is queued write-acks: they describe an item that lives on a
- * specific screen, so the tap follows the item (see QUEUED_ACK_TARGETS).
- * Today's digest keeps `eventTarget` — it has no expansion affordance.
+ * Tap target for Timeline rows specifically.
+ *
+ * When the event carries a machine-readable `kind`, KIND_TARGETS decides —
+ * including "expand in place" for kinds the table (or this app version) does
+ * not know. Category and title matching are never consulted for kind-bearing
+ * events.
+ *
+ * Without `kind` (older sidecar), the legacy rules apply. System events
+ * differ from the shared map: on the Timeline they are mostly journal records
+ * (notification captures, sync acks) and /status shows live agent state, not
+ * the tapped event — a blind jump. Those rows expand in place instead, like
+ * agent rows. The exception is queued write-acks: they describe an item that
+ * lives on a specific screen, so the tap follows the item (see
+ * QUEUED_ACK_TARGETS). Today's digest keeps `eventTarget` — it has no
+ * expansion affordance.
  */
 export function timelineEventTarget(
   category: EventCategory,
   relatedId: string | null = null,
   title: string | null = null,
+  kind: string | null = null,
 ): EventTarget | null {
+  if (kind !== null) {
+    const route = KIND_TARGETS[kind] ?? null
+    if (route === null) return null
+    // Status shows live state, nothing to flash there — no highlight hint.
+    if (route === '/status') return { route }
+    return relatedId === null ? { route } : { route, highlightId: relatedId }
+  }
   if (category === 'system') {
     const ack =
       title === null ? undefined : QUEUED_ACK_TARGETS.find((t) => title.startsWith(t.prefix))

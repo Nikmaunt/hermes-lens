@@ -32,9 +32,12 @@ const status: AgentStatus = {
 }
 
 /** StatusScreen with an injected data source, for copy the fixtures can't pin. */
-function renderStatus() {
+function renderStatus(overrides: Partial<AgentStatus> = {}) {
   const kv = new MemoryKV()
-  const ds = { kind: 'mock', getStatus: async () => status } as unknown as DataSource
+  const ds = {
+    kind: 'mock',
+    getStatus: async () => ({ ...status, ...overrides }),
+  } as unknown as DataSource
   const value = {
     ds,
     cache: createEndpointCache(kv),
@@ -61,11 +64,18 @@ function renderStatus() {
 describe('token spend caption', () => {
   it('labels the tracked figure honestly — no "this month" claim', { timeout: 20_000 }, async () => {
     renderStatus()
-    // /api/status carries no tracking-start date, so the caption must not
+    // An older sidecar sends no tracking-start date, so the caption must not
     // pretend the figure covers the whole month.
     await screen.findByText('total tracked', undefined, { timeout: 5000 })
     expect(screen.queryByText('this month')).toBeNull()
     expect(screen.getByText('$3.17')).toBeInTheDocument()
     expect(screen.getByText('today')).toBeInTheDocument()
+  })
+
+  it('shows the tracking start when the sidecar reports since', { timeout: 20_000 }, async () => {
+    renderStatus({ tokenSpend: { todayUsd: 0.42, monthUsd: 3.17, since: '12 Jun' } })
+    await screen.findByText('since 12 Jun', undefined, { timeout: 5000 })
+    expect(screen.queryByText('total tracked')).toBeNull()
+    expect(screen.getByText('$3.17')).toBeInTheDocument()
   })
 })

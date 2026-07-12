@@ -33,6 +33,15 @@ export const CommandsResponse = z.object({
 })
 // End of the verbatim mirror. Inferred types below follow the local
 // schema-file convention.
+//
+// Enum decisions (documented outside the mirror so the block stays verbatim):
+// every enum above is CLOSED. CommandRequest.type is a request enum (new
+// command types deploy client-first; a 400 from an older sidecar is correct).
+// CommandAccepted.status (ok|duplicate) and CommandStatus.state
+// (pending|running|done|error) are protocol state machines the queue and the
+// lifecycle UI branch on. CommandStatus.type and result.kind only echo
+// command types the client itself queued, so client-first deployment
+// guarantees the app knows every value it can see back.
 
 export type AdhocDigestPayload = z.infer<typeof AdhocDigestPayload>
 export type CreatePersonNotePayload = z.infer<typeof CreatePersonNotePayload>
